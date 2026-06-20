@@ -43,7 +43,7 @@ export async function buildDna(clientId: string, phoeniqs: PhoeniqsService, forc
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-    { temperature: 0.2, maxTokens: 700 }
+    { temperature: 0.2, maxTokens: 3000 }
   );
 
   // Defensive normalisation so the UI always has arrays.

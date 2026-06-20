@@ -70,7 +70,7 @@ function AlertCard({ alert }: { alert: Alert }) {
   const col = conflict ? "var(--signal)" : "var(--grow)";
   return (
     <motion.div className="card" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-      style={{ borderTop: `3px solid ${col}` }}>
+>
       <div className="card-pad">
         <div className="between" style={{ marginBottom: 12 }}>
           <span className="chip" style={{ borderColor: col, color: conflict ? "var(--signal-ink)" : "var(--grow-ink)" }}>
@@ -259,7 +259,7 @@ function PortfolioCard({ d }: { d: ClientDetail }) {
         {top.map((h) => {
           const flag = h.isin === flaggedIsin;
           return (
-            <div key={h.isin} className="between" style={{ padding: "10px 0", borderTop: "1px solid var(--hairline-2)" }}>
+            <div key={h.isin} className="between" style={{ padding: "10px 0" }}>
               <div className="row" style={{ gap: 8, alignItems: "center", minWidth: 0 }}>
                 {flag && <span className="dot bad" />}
                 <div className="col" style={{ gap: 1, minWidth: 0 }}>
@@ -283,7 +283,7 @@ function NewsCard({ alert }: { alert: Alert }) {
       <div className="between" style={{ marginBottom: 12 }}><span className="h2">Live coverage</span><span className="label">Event Registry</span></div>
       <div className="col" style={{ gap: 12 }}>
         {alert.news.slice(0, 4).map((n) => (
-          <a key={n.id} href={n.url} target="_blank" rel="noreferrer" className="col" style={{ gap: 3, borderTop: "1px solid var(--hairline-2)", paddingTop: 10 }}>
+          <a key={n.id} href={n.url} target="_blank" rel="noreferrer" className="col" style={{ gap: 3 }}>
             <span style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.3 }}>{n.title}</span>
             <span className="label" style={{ fontSize: 9.5 }}>{n.source}</span>
           </a>

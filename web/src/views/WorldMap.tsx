@@ -1,150 +1,531 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import TopBar from "../components/TopBar";
+import { motion, AnimatePresence } from "framer-motion";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { api, ClientSummary } from "../api";
 
-// Switzerland bounding box for projecting client coordinates into the map.
-const BOX = { latN: 47.9, latS: 45.7, lngW: 5.8, lngE: 10.6 };
+// ── Design tokens (BikeTausch style) ─────────────────────────────────────────
+const T = {
+  black: "#111111",
+  white: "#ffffff",
+  muted: "#f7f7f7",
+  gray: "#666666",
+  grayLight: "#999999",
+  grayBorder: "#eeeeee",
+  red: "#d4180f",
+  green: "#1a6b4a",
+  ease: "cubic-bezier(0.16, 1, 0.3, 1)",
+  spring: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+};
 
-export default function WorldMap() {
+const CLIENT_COORDS: Record<string, [number, number]> = {
+  schneider: [6.1432, 46.2044],
+  huber:     [7.4474, 46.948],
+  raeber:    [8.5417, 47.3769],
+  ammann:    [9.3767, 47.4245],
+};
+
+const LIGHT_MAP_STYLE = {
+  version: 8 as const,
+  sources: {
+    "carto": {
+      type: "raster" as const,
+      tiles: ["https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png"],
+      tileSize: 256,
+    },
+  },
+  layers: [{ id: "carto-layer", type: "raster" as const, source: "carto" }],
+};
+
+export default function Dashboard() {
   const [clients, setClients] = useState<ClientSummary[]>([]);
-  const [hover, setHover] = useState<string | null>(null);
+  const [active, setActive] = useState<string | null>(null);
   const nav = useNavigate();
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const mapEl = useRef<HTMLDivElement>(null);
+  const markersRef = useRef<Record<string, maplibregl.Marker>>({});
+  const didFlyRef = useRef(false);
 
-  useEffect(() => { api.clients().then(setClients).catch(() => setClients([])); }, []);
+  useEffect(() => {
+    api.clients().then((cs) => {
+      const sorted = [...cs].sort((a, b) =>
+        a.direction === b.direction ? 0 : a.direction === "conflict" ? -1 : 1
+      );
+      setClients(sorted);
+      setActive(sorted[0]?.id ?? null);
+    }).catch(() => setClients([]));
+  }, []);
 
-  const W = 920, H = 520, pad = 70;
-  const project = (lat: number, lng: number) => ({
-    x: pad + ((lng - BOX.lngW) / (BOX.lngE - BOX.lngW)) * (W - 2 * pad),
-    y: pad + ((BOX.latN - lat) / (BOX.latN - BOX.latS)) * (H - 2 * pad),
-  });
-  const hub = { x: W / 2, y: H / 2 };
+  // Init map
+  useEffect(() => {
+    if (!mapEl.current || mapRef.current) return;
+    const map = new maplibregl.Map({
+      container: mapEl.current,
+      style: LIGHT_MAP_STYLE,
+      center: [7.6, 46.75],
+      zoom: 6.9,
+      attributionControl: false,
+    });
+    mapRef.current = map;
+    return () => { map.remove(); mapRef.current = null; };
+  }, []);
 
-  const conflicts = clients.filter((c) => c.direction === "conflict").length;
+  // Add markers
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !clients.length) return;
+
+    const addMarkers = () => {
+      Object.values(markersRef.current).forEach(m => m.remove());
+      markersRef.current = {};
+
+      clients.forEach((c) => {
+        const coords = CLIENT_COORDS[c.id];
+        if (!coords) return;
+        const conflict = c.direction === "conflict";
+        const accent = conflict ? T.red : T.green;
+
+        // Single element: avatar IS the marker, pulse via box-shadow animation
+        // No wrapper with absolute children → fixes drift on zoom
+        const el = document.createElement("div");
+        el.dataset.clientId = c.id;
+        el.style.cssText = `
+          width:40px;height:40px;
+          border-radius:50%;
+          overflow:hidden;
+          border:2px solid ${T.black};
+          cursor:pointer;
+          animation:avatarPulse_${conflict ? "red" : "green"} 2.6s ease-out infinite;
+          transition:border-color 0.2s;
+        `;
+        const img = document.createElement("img");
+        img.src = `/profiles/${c.id}.png`;
+        img.style.cssText = `width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;transition:transform 0.2s ${T.ease};`;
+        el.appendChild(img);
+
+        el.addEventListener("mouseenter", () => {
+          img.style.transform = "scale(1.15)";
+          el.style.borderColor = accent;
+        });
+        el.addEventListener("mouseleave", () => {
+          img.style.transform = "scale(1)";
+          el.style.borderColor = T.black;
+        });
+        el.addEventListener("click", () => setActive(c.id));
+
+        const marker = new maplibregl.Marker({ element: el, anchor: "center" })
+          .setLngLat(coords).addTo(map);
+
+        // Name label as separate popup-style tooltip (Maplibre handles positioning)
+        new maplibregl.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          offset: [0, -28],
+          className: "marker-label-popup",
+        })
+          .setLngLat(coords)
+          .setHTML(`<span>${c.name}</span>`)
+          .addTo(map);
+
+        markersRef.current[c.id] = marker;
+      });
+    };
+
+    if (map.loaded()) addMarkers();
+    else map.on("load", addMarkers);
+  }, [clients]);
+
+  // Active marker + fly
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !active) return;
+    const coords = CLIENT_COORDS[active];
+    if (!coords) return;
+
+    Object.entries(markersRef.current).forEach(([id, m]) => {
+      const el = m.getElement();
+      const isAct = id === active;
+      const c = clients.find(x => x.id === id);
+      const accent = c?.direction === "conflict" ? T.red : T.green;
+      el.style.borderColor = isAct ? accent : T.black;
+      el.style.zIndex = isAct ? "10" : "1";
+      const innerImg = el.querySelector("img") as HTMLElement;
+      if (innerImg) innerImg.style.transform = isAct ? "scale(1.12)" : "scale(1)";
+    });
+
+    if (didFlyRef.current) {
+      map.flyTo({ center: coords, zoom: 8.5, duration: 1200, essential: true });
+    } else {
+      didFlyRef.current = true;
+    }
+  }, [active, clients]);
+
+  const conflicts = clients.filter(c => c.direction === "conflict").length;
+  const opps = clients.filter(c => c.direction === "opportunity").length;
+  const activeClient = clients.find(c => c.id === active);
 
   return (
-    <div className="col" style={{ minHeight: "100%" }}>
-      <TopBar />
-      <div className="shell" style={{ paddingTop: 48, paddingBottom: 64 }}>
-        {/* --- Editorial hero --------------------------------------------- */}
-        <div className="between" style={{ alignItems: "flex-end", marginBottom: 28 }}>
-          <div style={{ maxWidth: 720 }}>
-            <div className="label" style={{ marginBottom: 16 }}>SwissHacks 2026 · Private Wealth Advisory</div>
-            <motion.h1 className="display" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-              Every client,<br />read in full.
-            </motion.h1>
-            <p className="body" style={{ marginTop: 18, maxWidth: 540, fontSize: 16 }}>
-              Agent Angelo turns three years of CRM notes, portfolios and live markets into personalised,
-              explainable proposals — within mandate, with the relationship manager always in the loop.
-            </p>
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", background: T.white, color: T.black }}>
+
+      {/* ── Topbar (BikeTausch nav style) ───────────────────────────────── */}
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 40px", height: 52, borderBottom: `1px solid ${T.black}`, flexShrink: 0, background: T.white, zIndex: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, letterSpacing: "-0.02em" }}>
+            Agent<span style={{ fontWeight: 300 }}>Angelo</span>
           </div>
-          <div className="col" style={{ gap: 14, textAlign: "right" }}>
-            <Stat n={String(clients.length)} l="Clients" />
-            <Stat n={String(conflicts)} l="Open conflicts" tone="bad" />
+          <div style={{ display: "flex", gap: 28 }}>
+            {["Dashboard", "Clients", "Portfolios", "Alerts"].map((item, i) => (
+              <span key={item} style={{ fontSize: 11, fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", color: i === 0 ? T.black : T.grayLight, cursor: "pointer" }}>
+                {item}
+              </span>
+            ))}
           </div>
         </div>
-
-        {/* --- Command map ----------------------------------------------- */}
-        <div className="card" style={{ position: "relative", overflow: "hidden", background: "var(--void)" }}>
-          <div className="label" style={{ position: "absolute", top: 18, left: 22, color: "var(--void-ink-2)", zIndex: 2 }}>
-            Client Network — Switzerland
-          </div>
-          <div className="mono" style={{ position: "absolute", top: 18, right: 22, color: "var(--void-ink-2)", fontSize: 11, zIndex: 2 }}>
-            46.80°N / 8.22°E · LIVE
-          </div>
-
-          <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block" }}>
-            <Graticule W={W} H={H} pad={pad} />
-            {/* connections hub -> clients */}
-            {clients.map((c) => {
-              const p = project(c.location.lat, c.location.lng);
-              return <motion.line key={`l-${c.id}`} x1={hub.x} y1={hub.y} x2={p.x} y2={p.y}
-                stroke="var(--void-line)" strokeWidth={1}
-                initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.9, delay: 0.2 }} />;
-            })}
-            {/* central desk hub */}
-            <circle cx={hub.x} cy={hub.y} r={5} fill="var(--void-ink)" />
-            <circle cx={hub.x} cy={hub.y} r={13} fill="none" stroke="var(--void-line)" />
-            <text x={hub.x} y={hub.y + 30} textAnchor="middle" fill="var(--void-ink-2)" fontSize={10} fontFamily="var(--mono)" letterSpacing="2">RM DESK</text>
-
-            {/* client nodes */}
-            {clients.map((c, i) => {
-              const p = project(c.location.lat, c.location.lng);
-              const col = c.direction === "conflict" ? "var(--signal)" : "var(--grow)";
-              const active = hover === c.id;
-              return (
-                <g key={c.id} transform={`translate(${p.x},${p.y})`} style={{ cursor: "pointer" }}
-                  onMouseEnter={() => setHover(c.id)} onMouseLeave={() => setHover(null)}
-                  onClick={() => nav(`/client/${c.id}`)}>
-                  <motion.circle fill={col} initial={{ r: 22, opacity: 0.18 }}
-                    animate={{ r: [22, 30, 22], opacity: [0.18, 0.05, 0.18] }}
-                    transition={{ duration: 2.6, repeat: Infinity, delay: i * 0.4 }} />
-                  <circle r={active ? 9 : 6} fill={col} stroke="var(--void)" strokeWidth={2} />
-                  <text x={0} y={-18} textAnchor="middle" fill="var(--void-ink)" fontSize={13} fontWeight={700}>{c.name}</text>
-                  <text x={0} y={26} textAnchor="middle" fill="var(--void-ink-2)" fontSize={10} fontFamily="var(--mono)">{c.location.city.toUpperCase()}</text>
-                </g>
-              );
-            })}
-          </svg>
-
-          {/* hover detail */}
-          {hover && (() => {
-            const c = clients.find((x) => x.id === hover)!;
-            return (
-              <motion.div className="card-pad" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                style={{ position: "absolute", left: 22, bottom: 18, width: 360, background: "var(--void-2)", border: "1px solid var(--void-line)", borderRadius: 2, color: "var(--void-ink)" }}>
-                <div className="between"><span className="h3">{c.displayName}</span>
-                  <span className="chip" style={{ borderColor: c.direction === "conflict" ? "var(--signal)" : "var(--grow)", color: c.direction === "conflict" ? "var(--signal)" : "var(--grow)" }}>{c.direction}</span></div>
-                <div className="mono" style={{ fontSize: 11, color: "var(--void-ink-2)", margin: "6px 0 10px" }}>{c.mandate.toUpperCase()} MANDATE</div>
-                <div style={{ fontSize: 13, lineHeight: 1.5, color: "var(--void-ink-2)" }}>{c.event}</div>
-              </motion.div>
-            );
-          })()}
+        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          <LiveBadge />
+          <IntegBtn />
         </div>
+      </header>
 
-        {/* --- Client roster --------------------------------------------- */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginTop: 16 }}>
-          {clients.map((c, i) => (
-            <motion.div key={c.id} className="card card-pad" onClick={() => nav(`/client/${c.id}`)}
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 * i }}
-              whileHover={{ y: -3 }} style={{ cursor: "pointer" }}>
-              <div className="between">
-                <span className="label">{c.mandate}</span>
-                <span className={`dot ${c.direction === "conflict" ? "bad" : "ok"}`} />
-              </div>
-              <div className="h2" style={{ marginTop: 14 }}>{c.name}</div>
-              <div className="small" style={{ marginTop: 6, minHeight: 40 }}>{c.tagline}</div>
-              <div className="label" style={{ marginTop: 14, color: c.direction === "conflict" ? "var(--signal-ink)" : "var(--grow-ink)" }}>
-                {c.direction === "conflict" ? "● Action needed" : "● Opportunity"}
-              </div>
-            </motion.div>
+      {/* ── Ticker (BikeTausch ticker style) ────────────────────────────── */}
+      <div style={{ overflow: "hidden", borderBottom: `1px solid ${T.black}`, flexShrink: 0, background: T.black }}>
+        <motion.div
+          animate={{ x: ["0%", "-50%"] }}
+          transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+          style={{ display: "flex", whiteSpace: "nowrap" }}
+        >
+          {[...Array(2)].map((_, rep) => (
+            <div key={rep} style={{ display: "flex" }}>
+              {[
+                { label: "Action Required", val: String(conflicts) },
+                { label: "Opportunities", val: String(opps) },
+                { label: "Clients Monitored", val: String(clients.length) },
+                { label: "SIX MCP", val: "LIVE" },
+                { label: "Mandate Types", val: "Defensive · Balanced · Growth" },
+                { label: "Audit Trail", val: "Deterministic · No Hallucinations" },
+              ].map(({ label, val }) => (
+                <span key={label} style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", padding: "9px 40px", color: "#888", flexShrink: 0 }}>
+                  {label} · <span style={{ color: "white" }}>{val}</span>
+                </span>
+              ))}
+            </div>
           ))}
+        </motion.div>
+      </div>
+
+      {/* ── Main bento grid ──────────────────────────────────────────────── */}
+      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1px 380px", minHeight: 0 }}>
+
+        {/* MAP */}
+        <div style={{ position: "relative", overflow: "hidden" }}>
+          <div ref={mapEl} style={{ width: "100%", height: "100%" }} />
+
+          {/* Active client card — BikeTausch sharp card style */}
+          <AnimatePresence>
+            {activeClient && (
+              <motion.div key={activeClient.id}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                style={{
+                  position: "absolute", bottom: 24, left: 24, width: 340,
+                  background: T.white,
+                  border: `1px solid ${T.black}`,
+                  zIndex: 10,
+                }}
+              >
+                {/* Card header */}
+                <div style={{ padding: "16px 18px 14px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: `1px solid ${T.grayBorder}` }}>
+                  <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                    <div style={{ width: 48, height: 48, border: `1px solid ${T.black}`, borderRadius: "50%", overflow: "hidden", flexShrink: 0 }}>
+                      <img src={`/profiles/${activeClient.id}.png`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>{activeClient.displayName}</div>
+                      <div style={{ fontSize: 10, color: T.grayLight, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 3 }}>
+                        {activeClient.mandate} · {activeClient.location.city}
+                      </div>
+                    </div>
+                  </div>
+                  <DirectionTag direction={activeClient.direction} />
+                </div>
+
+                {/* Why now */}
+                <div style={{ padding: "12px 18px 16px" }}>
+                  <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: T.grayLight, marginBottom: 6 }}>Why now</div>
+                  <div style={{ fontSize: 13, lineHeight: 1.55, color: T.gray }}>{activeClient.event}</div>
+
+                  {/* Buttons */}
+                  <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                    <motion.button
+                      whileHover={{ y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => nav(`/client/${activeClient.id}`)}
+                      transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                      style={{
+                        flex: 1, padding: "10px 0",
+                        background: T.black, color: T.white,
+                        border: "none", cursor: "pointer",
+                        fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      {activeClient.direction === "conflict" ? "Review Alert →" : "See Opportunity →"}
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => nav(`/client/${activeClient.id}/twin`)}
+                      transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                      style={{
+                        padding: "10px 16px",
+                        background: T.white, color: T.black,
+                        border: `1px solid ${T.black}`, cursor: "pointer",
+                        fontSize: 11, fontWeight: 600, letterSpacing: "0.1em",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      ◢ Twin
+                    </motion.button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Map attribution */}
+          <div style={{ position: "absolute", bottom: 6, right: 8, fontSize: 9, color: T.grayLight, zIndex: 10 }}>© CartoDB</div>
+        </div>
+
+        {/* Vertical divider */}
+        <div style={{ background: T.black }} />
+
+        {/* ── RIGHT PANEL ── */}
+        <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", background: T.white }}>
+
+          {/* KPI row */}
+          <div style={{ display: "flex", borderBottom: `1px solid ${T.black}`, flexShrink: 0 }}>
+            <KPICell value={conflicts} label="Action Required" accent={T.red} />
+            <div style={{ width: 1, background: T.black }} />
+            <KPICell value={opps} label="Opportunities" accent={T.green} />
+            <div style={{ width: 1, background: T.black }} />
+            <KPICell value={clients.length} label="Total" />
+          </div>
+
+          {/* Queue header */}
+          <div style={{ padding: "14px 18px 12px", borderBottom: `1px solid ${T.grayBorder}`, flexShrink: 0 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: T.grayLight }}>Priority Queue</span>
+              <span style={{ fontSize: 10, color: T.grayLight }}>Ranked by impact</span>
+            </div>
+          </div>
+
+          {/* Client cards */}
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            {/* Bento: gap:1px, bg:black = black lines */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 1, background: T.black }}>
+              {clients.map((c, i) => (
+                <ClientRow key={c.id} client={c} rank={i + 1}
+                  isActive={active === c.id}
+                  onSelect={() => setActive(c.id)}
+                  onOpen={() => nav(`/client/${c.id}`)}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Footer status */}
+          <div style={{ padding: "10px 18px", borderTop: `1px solid ${T.black}`, flexShrink: 0, display: "flex", gap: 20 }}>
+            <IntegDot label="SIX MCP" ok />
+            <IntegDot label="Phoeniqs" ok={false} />
+            <IntegDot label="News" ok={false} />
+          </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes avatarPulse_red {
+          0%   { box-shadow: 0 0 0 0px rgba(212,24,15,0.5); }
+          70%  { box-shadow: 0 0 0 12px rgba(212,24,15,0); }
+          100% { box-shadow: 0 0 0 12px rgba(212,24,15,0); }
+        }
+        @keyframes avatarPulse_green {
+          0%   { box-shadow: 0 0 0 0px rgba(26,107,74,0.5); }
+          70%  { box-shadow: 0 0 0 12px rgba(26,107,74,0); }
+          100% { box-shadow: 0 0 0 12px rgba(26,107,74,0); }
+        }
+        .maplibregl-canvas-container { cursor: grab; }
+        .maplibregl-canvas-container:active { cursor: grabbing; }
+        .maplibregl-marker { outline: none !important; }
+        .maplibregl-popup { pointer-events: none; }
+        .marker-label-popup .maplibregl-popup-content {
+          background: ${T.white};
+          border: 1px solid ${T.black};
+          padding: 3px 8px;
+          font-family: 'Helvetica Neue', sans-serif;
+          font-size: 11px;
+          font-weight: 700;
+          color: ${T.black};
+          letter-spacing: 0.02em;
+          box-shadow: none;
+        }
+        .marker-label-popup .maplibregl-popup-tip { display: none; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: ${T.muted}; }
+        ::-webkit-scrollbar-thumb { background: ${T.black}; }
+      `}</style>
     </div>
   );
 }
 
-function Stat({ n, l, tone }: { n: string; l: string; tone?: "bad" }) {
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function ClientRow({ client: c, rank, isActive, onSelect, onOpen }: {
+  client: ClientSummary; rank: number; isActive: boolean;
+  onSelect: () => void; onOpen: () => void;
+}) {
+  const conflict = c.direction === "conflict";
+  const accent = conflict ? T.red : T.green;
+
   return (
-    <div className="col" style={{ gap: 4 }}>
-      <span className="mono" style={{ fontSize: 34, fontWeight: 700, color: tone === "bad" ? "var(--signal-ink)" : "var(--ink)" }}>{n}</span>
-      <span className="label">{l}</span>
+    <motion.div
+      layout
+      onClick={onSelect}
+      whileHover={{ backgroundColor: T.muted } as any}
+      style={{
+        background: isActive ? T.muted : T.white,
+        cursor: "pointer",
+        transition: "background 0.15s",
+      }}
+    >
+      <div style={{ padding: "13px 18px" }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flex: 1, minWidth: 0 }}>
+            <span style={{ fontSize: 9, color: T.grayLight, fontFamily: "monospace", flexShrink: 0, width: 12 }}>{rank}</span>
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <div style={{ width: 32, height: 32, border: `1px solid ${isActive ? accent : T.black}`, borderRadius: "50%", overflow: "hidden", transition: "border-color 0.2s" }}>
+                <img src={`/profiles/${c.id}.png`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              </div>
+              <div style={{ position: "absolute", bottom: 0, right: 0, width: 8, height: 8, background: accent }} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name}</div>
+              <div style={{ fontSize: 9.5, color: T.grayLight, letterSpacing: "0.06em", marginTop: 1 }}>
+                {c.mandate} · {c.location.city}
+              </div>
+            </div>
+          </div>
+          <DirectionTag direction={c.direction} small />
+        </div>
+
+        {/* Expanded content */}
+        <AnimatePresence>
+          {isActive && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              style={{ overflow: "hidden" }}
+            >
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.grayBorder}` }}>
+                <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: T.grayLight, marginBottom: 5 }}>Why now</div>
+                <div style={{ fontSize: 12, color: T.gray, lineHeight: 1.55, marginBottom: 12 }}>{c.event}</div>
+                <motion.button
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={(e) => { e.stopPropagation(); onOpen(); }}
+                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                  style={{
+                    width: "100%", padding: "9px 0",
+                    background: T.black, color: T.white,
+                    border: "none", cursor: "pointer",
+                    fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {conflict ? "Review Alert →" : "See Opportunity →"}
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
+  );
+}
+
+function DirectionTag({ direction, small }: { direction: string; small?: boolean }) {
+  const conflict = direction === "conflict";
+  return (
+    <div style={{
+      display: "inline-flex", alignItems: "center", gap: 5,
+      padding: small ? "3px 8px" : "5px 10px",
+      border: `1px solid ${conflict ? T.red : T.green}`,
+      color: conflict ? T.red : T.green,
+      fontSize: 9, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase",
+      flexShrink: 0,
+    }}>
+      <motion.div
+        animate={{ opacity: [1, 0.2, 1] }}
+        transition={{ duration: 1.8, repeat: Infinity }}
+        style={{ width: 4, height: 4, background: conflict ? T.red : T.green }}
+      />
+      {conflict ? "Action" : "Opp."}
     </div>
   );
 }
 
-function Graticule({ W, H, pad }: { W: number; H: number; pad: number }) {
-  const cols = 9, rows = 5;
-  const lines = [];
-  for (let i = 0; i <= cols; i++) {
-    const x = pad + (i / cols) * (W - 2 * pad);
-    lines.push(<line key={`v${i}`} x1={x} y1={pad} x2={x} y2={H - pad} stroke="var(--void-line)" strokeWidth={0.5} opacity={0.5} />);
-  }
-  for (let j = 0; j <= rows; j++) {
-    const y = pad + (j / rows) * (H - 2 * pad);
-    lines.push(<line key={`h${j}`} x1={pad} y1={y} x2={W - pad} y2={y} stroke="var(--void-line)" strokeWidth={0.5} opacity={0.5} />);
-  }
-  return <g>{lines}</g>;
+function KPICell({ value, label, accent }: { value: number; label: string; accent?: string }) {
+  return (
+    <div style={{ flex: 1, padding: "12px 16px" }}>
+      <motion.div key={value} initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+        style={{ fontSize: 28, fontWeight: 300, letterSpacing: "-0.03em", lineHeight: 1, color: accent ?? T.black }}>
+        {value}
+      </motion.div>
+      <div style={{ fontSize: 9, color: T.grayLight, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 3 }}>{label}</div>
+    </div>
+  );
+}
+
+function LiveBadge() {
+  const [time, setTime] = useState(new Date().toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" }));
+  useEffect(() => {
+    const t = setInterval(() => setTime(new Date().toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })), 10000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <motion.div animate={{ opacity: [1, 0.2, 1] }} transition={{ duration: 2, repeat: Infinity }}
+        style={{ width: 6, height: 6, background: T.green }} />
+      <span style={{ fontSize: 10, color: T.grayLight, letterSpacing: "0.1em", fontFamily: "monospace" }}>{time} · LIVE</span>
+    </div>
+  );
+}
+
+function IntegBtn() {
+  return (
+    <motion.button whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}
+      style={{
+        padding: "8px 16px", background: T.black, color: T.white,
+        border: "none", cursor: "pointer",
+        fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase",
+        fontFamily: "inherit",
+      }}
+    >
+      Integrations
+    </motion.button>
+  );
+}
+
+function IntegDot({ label, ok }: { label: string; ok: boolean }) {
+  return (
+    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+      <div style={{ width: 5, height: 5, background: ok ? T.green : T.grayBorder }} />
+      <span style={{ fontSize: 9, color: T.grayLight, letterSpacing: "0.08em", textTransform: "uppercase" }}>{label}</span>
+    </div>
+  );
 }

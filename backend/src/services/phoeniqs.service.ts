@@ -46,9 +46,12 @@ export class PhoeniqsService {
         model: this.model,
         messages,
         temperature: opts.temperature ?? 0.4,
-        max_tokens: opts.maxTokens ?? 700,
+        max_tokens: opts.maxTokens ?? 2000,
       });
-      return data?.choices?.[0]?.message?.content || "";
+      const msg = data?.choices?.[0]?.message;
+      // Reasoning models (o1-style) put the final answer in content; if null,
+      // fall back to reasoning_content so we still get a usable response.
+      return msg?.content ?? msg?.reasoning_content ?? "";
     } catch (error) {
       const ax = error as { response?: { data?: { error?: { message?: string } } } };
       const msg = ax.response?.data?.error?.message || (error as Error).message;
