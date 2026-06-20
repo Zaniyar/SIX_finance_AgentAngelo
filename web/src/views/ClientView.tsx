@@ -195,6 +195,40 @@ function DraftCard({ id, alertId }: { id: string; alertId: string }) {
 }
 
 // ---- Client DNA ------------------------------------------------------------
+// ── DNA category config ────────────────────────────────────────────────────────
+const DNA_CATEGORIES = [
+  {
+    key: "values" as const,
+    label: "Core Values",
+    icon: "◆",
+    color: "#c21d12",        // red — non-negotiable
+    bg: "rgba(194,29,18,0.07)",
+    tip: "Non-negotiable — drives divestment decisions",
+  },
+  {
+    key: "preferences" as const,
+    label: "Preferences & Aversions",
+    icon: "▲",
+    color: "#0e7c66",        // green — investment constraints
+    bg: "rgba(14,124,102,0.07)",
+    tip: "Explicit investment preferences and things to avoid",
+  },
+  {
+    key: "context" as const,
+    label: "Personal Context",
+    icon: "●",
+    color: "#1f1bff",        // blue — background facts
+    bg: "rgba(31,27,255,0.06)",
+    tip: "Life events, business context, family situation",
+  },
+] as const;
+
+const TONE_META: Record<string, { label: string; icon: string; color: string }> = {
+  "analytical":        { label: "Analytical",        icon: "📊", color: "#1f1bff" },
+  "values-led":        { label: "Values-Led",         icon: "♦",  color: "#c21d12" },
+  "relationship-led":  { label: "Relationship-Led",   icon: "◎",  color: "#0e7c66" },
+};
+
 function DnaCard({ d }: { d: ClientDetail }) {
   if (!d.dnaAvailable) {
     return (
@@ -205,24 +239,95 @@ function DnaCard({ d }: { d: ClientDetail }) {
     );
   }
   const { dna } = d;
+  const tone = TONE_META[dna.toneProfile] ?? { label: dna.toneProfile, icon: "◎", color: "var(--ink-3)" };
+
   return (
-    <motion.div className="card card-pad" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-      <div className="between" style={{ marginBottom: 14 }}>
-        <span className="h2">Client DNA</span>
-        <span className="chip">{dna.toneProfile}</span>
+    <motion.div className="card" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      {/* Header */}
+      <div className="card-pad" style={{ paddingBottom: 14 }}>
+        <div className="between" style={{ marginBottom: 10 }}>
+          <span className="h2">Client DNA</span>
+          {/* Tone badge */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "4px 10px",
+            border: `1px solid ${tone.color}44`,
+            background: `${tone.color}0e`,
+          }}>
+            <span style={{ fontSize: 11 }}>{tone.icon}</span>
+            <span style={{ fontSize: 10, fontFamily: "var(--mono)", letterSpacing: "0.1em", color: tone.color, fontWeight: 700, textTransform: "uppercase" }}>
+              {tone.label}
+            </span>
+          </div>
+        </div>
+        <p style={{ fontSize: 13.5, lineHeight: 1.55, color: "var(--ink-2)" }}>{dna.summary}</p>
       </div>
-      <p className="body" style={{ fontSize: 14, marginBottom: 18 }}>{dna.summary}</p>
-      <DnaList title="Values" items={dna.values} accent />
-      <DnaList title="Preferences & aversions" items={dna.preferences} />
-      <DnaList title="Context" items={dna.context} />
-      {dna.commsStyle && <>
-        <div className="label" style={{ marginTop: 16 }}>Comms style</div>
-        <p className="small" style={{ marginTop: 6 }}>{dna.commsStyle}</p>
-      </>}
+
+      {/* Category blocks */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 1, background: "var(--hairline)" }}>
+        {DNA_CATEGORIES.map((cat) => {
+          const items: string[] = (dna as any)[cat.key] ?? [];
+          if (!items.length) return null;
+          return (
+            <div key={cat.key} style={{ background: "var(--card)", padding: "14px 20px" }}>
+              {/* Category header */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <div style={{
+                  width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center",
+                  background: cat.bg, fontSize: 10, color: cat.color, fontWeight: 700,
+                }}>
+                  {cat.icon}
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: cat.color }}>
+                  {cat.label}
+                </span>
+                <span style={{ fontSize: 10, color: "var(--ink-3)", marginLeft: "auto" }}>{cat.tip}</span>
+              </div>
+              {/* Items as pills/chips */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                {items.map((item, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -6 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    style={{
+                      display: "flex", alignItems: "flex-start", gap: 10,
+                      padding: "7px 10px",
+                      background: "var(--paper)",
+                    }}
+                  >
+                    <span style={{
+                      flexShrink: 0, width: 16, height: 16, marginTop: 1,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 8, color: cat.color, fontWeight: 700,
+                      border: `1px solid ${cat.color}44`,
+                    }}>
+                      {i + 1}
+                    </span>
+                    <span style={{ fontSize: 13, lineHeight: 1.5, color: "var(--ink)" }}>{item}</span>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Comms style footer */}
+      {dna.commsStyle && (
+        <div style={{ padding: "12px 20px", background: "var(--paper-2)" }}>
+          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 5 }}>
+            ◎ How to communicate
+          </div>
+          <p style={{ fontSize: 12.5, lineHeight: 1.55, color: "var(--ink-2)", fontStyle: "italic" }}>"{dna.commsStyle}"</p>
+        </div>
+      )}
     </motion.div>
   );
 }
 
+// Keep for any remaining usages
 function DnaList({ title, items, accent }: { title: string; items: string[]; accent?: boolean }) {
   if (!items?.length) return null;
   return (

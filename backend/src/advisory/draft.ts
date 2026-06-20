@@ -28,7 +28,8 @@ export async function draftMessage(
   const system =
     "You are a Swiss private-banking relationship manager drafting a short, personal message to a client. " +
     "You NEVER place trades or give the client direct instructions to act — you propose, explain, and invite a " +
-    "conversation; the client decides. Respond with ONLY a minified JSON object, no markdown.";
+    'conversation; the client decides. Output ONLY this JSON (no reasoning, no markdown): {"subject":"...","body":"...","tone":"..."}';
+
 
   const user =
     `Client: ${client.displayName}. Mandate: ${client.mandate} (fixed).\n` +
@@ -47,7 +48,7 @@ export async function draftMessage(
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-    { temperature: 0.5, maxTokens: 600 }
+    { temperature: 0.5, maxTokens: 2500 }
   );
 
   return {

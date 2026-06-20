@@ -33,5 +33,5 @@ export async function twinReply(
     `aloud. Never break character or mention that you are an AI or a twin.`;
 
   const messages: ChatMessage[] = [{ role: "system", content: system }, ...history];
-  return phoeniqs.chat(messages, { temperature: 0.7, maxTokens: 350 });
+  return phoeniqs.chat(messages, { temperature: 0.7, maxTokens: 2000 });
 }
