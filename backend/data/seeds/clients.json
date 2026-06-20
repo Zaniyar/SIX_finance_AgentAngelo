@@ -1,0 +1,74 @@
+[
+  {
+    "id": "schneider",
+    "name": "Schneider",
+    "displayName": "Hubertus & Carmen Schneider",
+    "mandate": "Balanced",
+    "portfolio": "balanced",
+    "tagline": "Purpose-driven family foundation for chronic-illness research",
+    "location": { "city": "Geneva", "country": "Switzerland", "lat": 46.2044, "lng": 6.1432 },
+    "rm": "Sarah",
+    "avatarUrl": "/avatars/twin_male02.glb",
+    "scenario": {
+      "direction": "conflict",
+      "affectedSector": "Health Care",
+      "affectedIssuer": "Roche Holding AG",
+      "event": "The family's core European pharma large-cap announces it is shutting down its neurodegenerative-disease research division to refocus on higher-margin lifestyle drugs.",
+      "dnaHook": "Hubertus & Carmen hold large-cap pharma explicitly to fund the fight against their daughter Chloe's neurodegenerative condition; a holding that defunds that research is, in his words, a 'personal betrayal' and must be flagged for divestment."
+    }
+  },
+  {
+    "id": "huber",
+    "name": "Huber",
+    "displayName": "Huber",
+    "mandate": "Defensive",
+    "portfolio": "defensive",
+    "tagline": "Environmentalist focused on South American reforestation",
+    "location": { "city": "Bern", "country": "Switzerland", "lat": 46.948, "lng": 7.4474 },
+    "rm": "Sarah",
+    "avatarUrl": "/avatars/twin_female_casual.glb",
+    "scenario": {
+      "direction": "opportunity",
+      "affectedSector": "Consumer Staples",
+      "affectedIssuer": null,
+      "event": "A major global consumer-goods conglomerate announces it is completely cutting off suppliers tied to palm-oil deforestation and launching a multi-million-dollar foundation to reforest the Brazilian rainforest.",
+      "dnaHook": "Huber's portfolio is built around environmental impact and South American reforestation; this corporate shift is a values-aligned opportunity to tilt toward the issuer."
+    }
+  },
+  {
+    "id": "raeber",
+    "name": "Räber",
+    "displayName": "Eugen & Lisa Räber",
+    "mandate": "Defensive",
+    "portfolio": "defensive",
+    "tagline": "Conservative Swiss couple, averse to US technology exposure",
+    "location": { "city": "Zürich", "country": "Switzerland", "lat": 47.3769, "lng": 8.5417 },
+    "rm": "Thomas Keller",
+    "avatarUrl": "/avatars/twin_male03.glb",
+    "scenario": {
+      "direction": "conflict",
+      "affectedSector": "Information Technology",
+      "affectedIssuer": null,
+      "event": "The CIO issues a global Tactical Asset Allocation update: reduce defensive value (Consumer Staples & Health Care) to fund a new position in mega-cap US technology.",
+      "dnaHook": "The Räbers are conservative and explicitly averse to US tech; a TAA-driven rotation into mega-cap US technology clashes with their stated comfort and must be reconciled with the mandate."
+    }
+  },
+  {
+    "id": "ammann",
+    "name": "Ammann",
+    "displayName": "Julian Ammann",
+    "mandate": "Growth",
+    "portfolio": "growth",
+    "tagline": "Swiss entrepreneur — reputational risk is financial risk",
+    "location": { "city": "St. Gallen", "country": "Switzerland", "lat": 47.4245, "lng": 9.3767 },
+    "rm": "Sarah",
+    "avatarUrl": "/avatars/twin.glb",
+    "scenario": {
+      "direction": "conflict",
+      "affectedSector": "Consumer Discretionary",
+      "affectedIssuer": null,
+      "event": "A labour-exploitation scandal breaks at a consumer brand held in the portfolio, drawing intense media coverage.",
+      "dnaHook": "Julian is a public advocate for ethical corporate leadership; he treats reputational risk as financial risk and cannot be associated with a labour-exploitation scandal."
+    }
+  }
+]

@@ -1,0 +1,15 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+
+# LLM-derived cache (DNA, etc.) — regenerated at runtime
+backend/data/cache/*.json
+
+# Secrets
+.env
+web/.env
+
+# Playwright artefacts / screenshots
+.playwright-mcp/
+*.png

@@ -1,0 +1,34 @@
+:root {
+  /* --- Swiss neutral palette: warm paper + deep ink ---------------------- */
+  --paper: #f3f2ee;
+  --paper-2: #eceae4;
+  --card: #ffffff;
+  --ink: #0a0a0a;
+  --ink-2: #3a3a38;
+  --ink-3: #6f6e69;
+  --hairline: #d9d7d0;
+  --hairline-2: #e7e5df;
+
+  /* --- Signal accents (used sparingly, the only colour) ------------------ */
+  --signal: #ff3b2f;      /* conflict / alert / Swiss red */
+  --signal-ink: #c21d12;
+  --grow: #0e7c66;        /* opportunity */
+  --grow-ink: #0b5e4d;
+  --accent: #1f1bff;      /* futuristic electric — interactive focus */
+
+  /* --- Dark surface for the 3D twin (futuristic counterpoint) ----------- */
+  --void: #0b0c0f;
+  --void-2: #14161c;
+  --void-ink: #f2f2f0;
+  --void-ink-2: #9aa0aa;
+  --void-line: #232730;
+
+  /* --- Type -------------------------------------------------------------- */
+  --sans: "Helvetica Neue", Helvetica, Inter, Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* --- Geometry ---------------------------------------------------------- */
+  --r: 2px;
+  --gap: 24px;
+  --maxw: 1320px;
+}
