@@ -29,7 +29,9 @@ It is not just a dashboard. It is a **living agent** embedded in your data.
 ## Key Innovations
 
 ### The World's First Proactive Dashboard
-Agent Angelo is an AI agent that monitors your entire client book 24/7 and **calls you on your real phone** when something urgent happens. When Novartis shuts down its neurology program and one of your clients holds 5.8% in that stock, Angelo doesn't wait for you to log in. He calls. He briefs you. He suggests the swap. In a human voice. In real-time.
+Agent Angelo is an AI agent that monitors your entire client book 24/7 and **calls you on your real phone** when something urgent happens.
+
+> The idea of an agent living inside data — believing its world is real — was inspired by the art project **[PromptedWorld](http://promptedworld.xyz/)**, where an AI agent exists entirely within a simulated reality, convinced that it and its world are genuine. Agent Angelo carries that same premise into finance: a mind living inside your data, acting as if the stakes are real — because they are. When Novartis shuts down its neurology program and one of your clients holds 5.8% in that stock, Angelo doesn't wait for you to log in. He calls. He briefs you. He suggests the swap. In a human voice. In real-time.
 
 Built on **ElevenLabs Conversational AI** + **Twilio** — genuine two-way voice conversation, not a recording. Angelo knows each client's DNA, portfolio, and communication style before he dials.
 
