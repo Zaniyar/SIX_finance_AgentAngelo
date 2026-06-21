@@ -147,32 +147,50 @@ async function synthesizeAudio(script: string, callId: string): Promise<void> {
   });
 }
 
-async function placeCall(callId: string): Promise<string> {
-  if (!TWILIO_ACCOUNT_SID) throw new Error("TWILIO_ACCOUNT_SID not set");
+// Use ElevenLabs ConvAI outbound call (two-way conversation)
+const EL_CONVAI_KEY = process.env.ELEVENLABS_CONVAI_API_KEY ?? process.env.ELEVENLABS_API_KEY ?? "";
+const EL_AGENT_ID = process.env.ELEVENLABS_AGENT_ID ?? "";
+const EL_PHONE_NUMBER_ID = process.env.ELEVENLABS_PHONE_NUMBER_ID ?? "";
+
+async function placeCall(_callId: string): Promise<string> {
   if (!RM_PHONE_NUMBER) throw new Error("RM_PHONE_NUMBER not set");
 
-  const audioUrl = `${BACKEND_PUBLIC_URL}/api/calls/audio/${callId}`;
-  const twiml = `<Response><Play>${audioUrl}</Play></Response>`;
+  // Prefer ElevenLabs ConvAI (two-way), fall back to Twilio one-way
+  if (EL_CONVAI_KEY && EL_AGENT_ID && EL_PHONE_NUMBER_ID) {
+    const res = await fetch("https://api.elevenlabs.io/v1/convai/twilio/outbound-call", {
+      method: "POST",
+      headers: { "xi-api-key": EL_CONVAI_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        agent_id: EL_AGENT_ID,
+        agent_phone_number_id: EL_PHONE_NUMBER_ID,
+        to_number: RM_PHONE_NUMBER,
+      }),
+    });
+    if (!res.ok) throw new Error(`ElevenLabs ConvAI ${res.status}: ${await res.text()}`);
+    const json = await res.json() as { callSid?: string; conversation_id?: string };
+    return json.callSid ?? json.conversation_id ?? "convai-call";
+  }
 
-  // Use API Key + Secret if available (recommended), fall back to Auth Token
+  // Fallback: Twilio one-way MP3 playback
+  if (!TWILIO_ACCOUNT_SID) throw new Error("No call provider configured");
+  const audioUrl = `${BACKEND_PUBLIC_URL}/api/calls/audio/${_callId}`;
+  const twiml = `<Response><Play>${audioUrl}</Play></Response>`;
   const client = TWILIO_API_KEY_SID && TWILIO_API_KEY_SECRET
     ? twilio(TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET, { accountSid: TWILIO_ACCOUNT_SID })
     : twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
-  const call = await client.calls.create({
-    to: RM_PHONE_NUMBER,
-    from: TWILIO_FROM_NUMBER,
-    twiml,
-  });
-
+  const call = await client.calls.create({ to: RM_PHONE_NUMBER, from: TWILIO_FROM_NUMBER, twiml });
   return call.sid;
 }
 
 async function pollCallStatus(twilioSid: string): Promise<string> {
-  const client = TWILIO_API_KEY_SID && TWILIO_API_KEY_SECRET
-    ? twilio(TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET, { accountSid: TWILIO_ACCOUNT_SID })
-    : twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
-  const call = await client.calls(twilioSid).fetch();
-  return call.status;
+  if (twilioSid === "convai-call" || twilioSid.startsWith("conv_")) return "completed";
+  try {
+    const client = TWILIO_API_KEY_SID && TWILIO_API_KEY_SECRET
+      ? twilio(TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET, { accountSid: TWILIO_ACCOUNT_SID })
+      : twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+    const call = await client.calls(twilioSid).fetch();
+    return call.status;
+  } catch { return "completed"; }
 }
 
 export async function triggerCall(
