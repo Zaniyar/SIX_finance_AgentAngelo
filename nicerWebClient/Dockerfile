@@ -12,7 +12,9 @@ WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
+COPY server-node.mjs ./server-node.mjs
 ENV NODE_ENV=production
 ENV PORT=3030
+ENV HOST=0.0.0.0
 EXPOSE 3030
-CMD ["node", "dist/server/server.js"]
+CMD ["node", "server-node.mjs"]

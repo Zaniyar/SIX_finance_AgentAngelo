@@ -14,6 +14,7 @@ const devPlugins = isDev ? [require("@vitejs/plugin-basic-ssl").default()] : [];
 export default defineConfig({
   tanstackStart: {
     server: { entry: "server" },
+    preset: "node",
   },
   vite: {
     plugins: devPlugins,
