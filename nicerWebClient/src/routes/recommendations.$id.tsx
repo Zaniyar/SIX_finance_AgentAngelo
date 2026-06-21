@@ -82,19 +82,11 @@ function RecommendationDetail() {
   const [tab, setTab] = useState<ClientPageTab>(isClientOnly ? "dna" : "reco");
   const [viewMode, setViewMode] = useState<"list" | "tile">("list");
 
-  // Auto-open all CollapsibleCards when tab or viewMode changes
-  useEffect(() => {
-    const t = setTimeout(() => {
-      document.querySelectorAll<HTMLButtonElement>(".bento-card-trigger").forEach((btn) => {
-        if (btn.getAttribute("aria-expanded") === "false") btn.click();
-      });
-    }, 80);
-    return () => clearTimeout(t);
-  }, [tab, viewMode]);
+  // Cards/menus stay collapsed by default (each CollapsibleCard defaults to closed).
+  // The RM expands only the detail they want to read.
 
   const allRecs = getRecsForClient(client.id);
   const otherRecs = allRecs.filter((r) => r.id !== rec.id);
-  const activeIdx = allRecs.findIndex((r) => r.id === rec.id);
 
   // Pool state, used only for combined briefing in message studio
   const [pooled, setPooled] = useState<Record<string, boolean>>({});
@@ -254,6 +246,8 @@ function RecommendationDetail() {
               </span>
             </div>
             <h1 className="font-display text-4xl tracking-tight">{client.name}</h1>
+            {/* Switch between this client's open recommendations, and merge them */}
+            <RecommendationSwitcher />
           </div>
         </div>
         <div className="shrink-0 flex flex-col items-end gap-1.5">
@@ -287,87 +281,7 @@ function RecommendationDetail() {
         </div>
       )}
 
-      {/* Recommendation carousel, all open actions for this client */}
-      {allRecs.length > 1 && (
-        <CollapsibleCard
-          className="mb-8"
-          defaultOpen={false}
-          accent="accent"
-          triggerClassName="p-4"
-          contentClassName="px-4 pb-4 pt-0"
-          icon={<Layers />}
-          title={`${allRecs.length} open actions`}
-          subtitle={`For ${client.name.split(" ")[0]}`}
-          header={
-            <>
-              <div className="flex min-w-0 flex-1 items-center gap-4">
-                <div className={cn("flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border shadow-sm", accentStyles.accent.icon, "[&_svg]:h-7 [&_svg]:w-7")}>
-                  <Layers />
-                </div>
-                <div>
-                  <div className="font-display text-lg tracking-tight">{allRecs.length} open actions</div>
-                  <div className="text-sm text-muted-foreground">For {client.name.split(" ")[0]}</div>
-                </div>
-              </div>
-              {allRecs.length > 4 && (
-                <div className="mr-2 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                  <button onClick={() => goTo(allRecs[(activeIdx - 1 + allRecs.length) % allRecs.length].id)}
-                    className="w-7 h-7 rounded border border-border flex items-center justify-center hover:bg-secondary/50 transition"
-                    aria-label="Previous">
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="text-[11px] tabular text-muted-foreground">{activeIdx + 1} / {allRecs.length}</span>
-                  <button onClick={() => goTo(allRecs[(activeIdx + 1) % allRecs.length].id)}
-                    className="w-7 h-7 rounded border border-border flex items-center justify-center hover:bg-secondary/50 transition"
-                    aria-label="Next">
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
-            </>
-          }
-        >
-          <div className={allRecs.length > 4
-            ? "flex gap-3 overflow-x-auto -mx-1 px-1 pb-1"
-            : "grid gap-3"}
-            style={allRecs.length > 4 ? undefined : { gridTemplateColumns: `repeat(${allRecs.length}, minmax(0, 1fr))` }}>
-            {allRecs.map((r) => {
-              const active = r.id === rec.id;
-              const pool = pooled[r.id];
-              return (
-                <div key={r.id}
-                  className={`${allRecs.length > 4 ? "shrink-0 w-[320px]" : ""} rounded border transition flex flex-col ${active ? "border-accent bg-accent/5" : "border-border hover:bg-secondary/40"}`}>
-                  <button onClick={() => !active && goTo(r.id)}
-                    className="text-left w-full p-3 cursor-pointer flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded ${r.priority === "High" ? "bg-destructive/10 text-destructive" : "bg-accent/10 text-accent"}`}>
-                        {r.priority}
-                      </span>
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{r.category}</span>
-                      {active && <span className="ml-auto text-[10px] uppercase tracking-wider text-accent">Viewing</span>}
-                    </div>
-                    <div className="text-sm font-medium leading-snug">{r.title}</div>
-                    <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{r.advised}</div>
-                  </button>
-                  {!active && (
-                    <label className="flex items-center gap-2 px-3 py-2 border-t border-border text-[11px] text-muted-foreground cursor-pointer hover:bg-secondary/40">
-                      <input type="checkbox" checked={!!pool}
-                        onChange={() => setPooled((p) => ({ ...p, [r.id]: !p[r.id] }))}
-                        className="w-3.5 h-3.5 accent-accent" />
-                      Pool with current for one combined message
-                    </label>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          {isPooling && (
-            <div className="mt-3 text-[11px] text-accent flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3" /> Pooled briefing active. The message studio combines {pooledRecs.length} actions into one outreach.
-            </div>
-          )}
-        </CollapsibleCard>
-      )}
+      {/* Old "open actions" carousel removed — replaced by <RecommendationSwitcher /> under the client name. */}
 
       {discardOpen && (
         <DiscardDialog
@@ -417,6 +331,77 @@ function RecommendationDetail() {
     </ClientPageChatProvider>
   );
 
+  // Switch between a client's open recommendations and merge them into one
+  // combined briefing. Reads the shared `pooled` state, so flipping "Merge"
+  // updates both the page (RecoTab) and the Message Studio automatically.
+  function RecommendationSwitcher() {
+    if (allRecs.length <= 1) return null;
+
+    // "Merged" means every other rec is pooled in with the active one.
+    const allMerged = otherRecs.length > 0 && otherRecs.every((r) => pooled[r.id]);
+
+    function toggleMergeAll() {
+      setPooled(() => {
+        if (allMerged) return {}; // separate back into individual actions
+        const next: Record<string, boolean> = {};
+        otherRecs.forEach((r) => { next[r.id] = true; });
+        return next;
+      });
+    }
+
+    return (
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+          {allRecs.length} actions
+        </span>
+
+        {/* Segmented control: one pill per recommendation */}
+        <div className="inline-flex flex-wrap items-center gap-0.5 rounded-lg border border-border bg-secondary/30 p-0.5">
+          {allRecs.map((r) => {
+            const active = r.id === rec.id;
+            const merged = isPooling && (active || !!pooled[r.id]);
+            return (
+              <button
+                key={r.id}
+                onClick={() => !active && goTo(r.id)}
+                title={r.title}
+                className={cn(
+                  "flex max-w-[220px] items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all",
+                  active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <span className={cn(
+                  "h-1.5 w-1.5 shrink-0 rounded-full",
+                  r.priority === "High" ? "bg-destructive" : "bg-accent",
+                  !active && !merged && "opacity-40",
+                )} />
+                <span className="truncate">{r.title}</span>
+                {merged && <Check className="h-3 w-3 shrink-0 text-accent" />}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Merge toggle */}
+        <button
+          onClick={toggleMergeAll}
+          title={isPooling
+            ? "Separate back into individual actions"
+            : "Merge all actions into one combined view and message"}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition",
+            isPooling
+              ? "border-accent bg-accent/10 text-accent"
+              : "border-border text-muted-foreground hover:bg-secondary/40 hover:text-foreground",
+          )}
+        >
+          <Layers className="h-3.5 w-3.5" />
+          {isPooling ? `Merged (${pooledRecs.length})` : "Merge all"}
+        </button>
+      </div>
+    );
+  }
+
   function RecoTab() {
     type RecoWidgetKey = "proposed" | "why" | "storyline" | "confidence" | "risks" | "alternatives" | "human" | "business" | "compliance";
     const { hiddenWidgets, editingWidgets, setEditingWidgets, widgetTileProps, showWidget } =
@@ -432,23 +417,31 @@ function RecommendationDetail() {
       return (
         <div className="space-y-6">
           {pooledRecs.map((r, idx) => (
-            <div key={r.id}>
-              {isPooling && (
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-accent/15 text-accent">#{idx + 1}</span>
-                  <h2 className="font-display text-xl tracking-tight">{r.title}</h2>
+            <div key={r.id} className="overflow-hidden rounded-xl border border-border/80 bg-surface/90 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_10px_28px_-16px_rgba(0,0,0,0.12)]">
+              {/* Always-visible headline: badges + title + the main proposed action + impact stats */}
+              <div className="p-5">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  {isPooling && (
+                    <span className="rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[10px] text-accent">#{idx + 1}</span>
+                  )}
+                  <span className={`rounded px-1.5 py-0.5 text-[9px] uppercase tracking-wider ${r.priority === "High" ? "bg-destructive/10 text-destructive" : "bg-accent/10 text-accent"}`}>{r.priority}</span>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{r.category}</span>
                 </div>
-              )}
-              <Section title="Proposed action" icon={<Sparkles className="w-4 h-4" />}>
-                <p className="text-lg font-display leading-snug">{r.advised}</p>
-                <div className="grid grid-cols-4 gap-px bg-border mt-5 rounded overflow-hidden border border-border">
+                <h2 className="mb-3 font-display text-xl tracking-tight">{r.title}</h2>
+                <div className="flex items-start gap-2.5">
+                  <Sparkles className="mt-1 h-4 w-4 shrink-0 text-accent" />
+                  <p className="font-display text-lg leading-snug">{r.advised}</p>
+                </div>
+                <div className="mt-5 grid grid-cols-4 gap-px overflow-hidden rounded border border-border bg-border">
                   <Stat label="Portfolio fit" value={`${r.impact.portfolioFit}/100`} />
                   <Stat label="Risk Δ" value={r.impact.riskDelta} />
                   <Stat label="Expected return" value={r.impact.expectedReturn} />
                   <Stat label="Sector shift" value={r.impact.sectorShift} small />
                 </div>
-              </Section>
-              <div className="mt-6">
+              </div>
+
+              {/* Supporting detail — expanded sub-sections, spaced for readability */}
+              <div className="space-y-8 border-t border-border/60 px-5 pb-6 pt-6">
                 <Section title="Why this matters" icon={<FileText className="w-4 h-4" />}>
                   <div className="grid grid-cols-1 gap-5">
                     <Reason label="Why now?" body={r.trigger} />
@@ -456,8 +449,7 @@ function RecommendationDetail() {
                     <Reason label="Why this action?" body={r.whyAction} />
                   </div>
                 </Section>
-              </div>
-              <div className="mt-6">
+              <div>
                 <Section title="Storyline & evidence" icon={<FileText className="w-4 h-4" />} subtitle="All claims cite a source the RM can open">
                   <p className="text-sm leading-relaxed text-foreground/90">{r.reason.storyline}</p>
                   <div className="mt-5 border-t border-border pt-4 space-y-3">
@@ -477,7 +469,7 @@ function RecommendationDetail() {
                 </Section>
               </div>
               {r.confidence && (
-                <div className="mt-6">
+                <div>
                   <Section title="How confident is the AI, and on what?" icon={<ShieldAlert className="w-4 h-4" />} subtitle="Interrogate before you send">
                     <div className="grid grid-cols-[160px_1fr] gap-5 items-start">
                       <div>
@@ -511,7 +503,7 @@ function RecommendationDetail() {
                 </div>
               )}
               {(r.counterArguments?.length || r.alternatives?.length) && (
-                <div className="mt-6 grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-2 gap-6">
                   {r.counterArguments?.length ? (
                     <Section title="What could go wrong" icon={<ShieldAlert className="w-4 h-4" />}>
                       <ul className="space-y-2.5 text-sm">{r.counterArguments.map((c, i) => <li key={i} className="flex gap-2 pb-2.5 border-b border-border last:border-b-0 last:pb-0"><span className="text-destructive font-mono text-xs mt-0.5">{String(i+1).padStart(2,"0")}</span><span>{c}</span></li>)}</ul>
@@ -525,7 +517,7 @@ function RecommendationDetail() {
                 </div>
               )}
               {(r.revenueImpact || r.personalImpact) && (
-                <div className="mt-6 grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-2 gap-6">
                   {r.personalImpact && (
                     <Section title="The human spark" icon={<Heart className="w-4 h-4" />} subtitle={`Angle: ${r.personalImpact.angle}`}>
                       <div className="relative bg-gradient-to-br from-accent/10 via-surface to-surface border border-accent/20 rounded p-4">
@@ -545,7 +537,7 @@ function RecommendationDetail() {
                 </div>
               )}
               {idx === pooledRecs.length - 1 && (
-                <div className="mt-6">
+                <div>
                   <Section title="Policy Engine · Regulatory & Compliance" icon={<Shield className="w-4 h-4" />}>
                     <div className="grid grid-cols-3 gap-4">
                       <CheckRow ok={r.compliance.mandateOk} label="Mandate fit" />
@@ -555,6 +547,7 @@ function RecommendationDetail() {
                   </Section>
                 </div>
               )}
+              </div>
             </div>
           ))}
         </div>
@@ -2552,7 +2545,7 @@ function Section({
   subtitle,
   icon,
   children,
-  defaultOpen = false,
+  defaultOpen = true,
   bento,
   accent = "neutral",
   editMode,
