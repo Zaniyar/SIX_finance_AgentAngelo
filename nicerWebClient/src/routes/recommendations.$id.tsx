@@ -1144,19 +1144,7 @@ function RecommendationDetail() {
               </div>
             </Section>
             <Section title="Holdings" subtitle="Reference & market data via SIX MCP">
-              <div className="border border-border rounded overflow-hidden overflow-x-auto">
-                <div className="grid grid-cols-[1fr_150px_90px_110px_70px_30px] gap-3 px-4 py-2 bg-secondary/40 text-[10px] uppercase tracking-wider text-muted-foreground"><div>Instrument</div><div>ISIN / Valor</div><div>Venue</div><div className="text-right">Last px</div><div className="text-right">Weight</div><div /></div>
-                {client.portfolio.holdings.map((h) => { const link = h.alert ? alertLinkFor(h.ticker) : null; const dayColor = h.lastPrice?.pctDay == null ? "text-muted-foreground" : h.lastPrice.pctDay > 0 ? "text-positive" : h.lastPrice.pctDay < 0 ? "text-destructive" : "text-muted-foreground"; return (
-                  <div key={h.ticker} className="grid grid-cols-[1fr_150px_90px_110px_70px_30px] gap-3 px-4 py-3 border-t border-border text-sm items-center">
-                    <div><div className="flex items-center gap-2"><span className="font-mono text-[11px] text-muted-foreground">{h.ticker}</span><span className="truncate">{h.name}</span></div><div className="text-[11px] text-muted-foreground mt-0.5">{h.sector}{h.instrumentType ? ` · ${h.instrumentType}` : ""}</div>{h.alert && <div className="text-[11px] text-destructive mt-0.5">{h.alert}</div>}</div>
-                    <div className="font-mono text-[11px] leading-tight"><div>{h.isin ?? "-"}</div><div className="text-muted-foreground">Valor {h.valor ?? "-"}</div></div>
-                    <div className="font-mono text-[11px]"><div>{h.primaryMic ?? "-"}</div><div className="text-muted-foreground">{h.venueCcy ?? ""}</div></div>
-                    <div className="text-right tabular text-xs">{h.lastPrice ? (<><div>{h.lastPrice.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-muted-foreground">{h.lastPrice.ccy}</span></div><div className={`text-[10px] ${dayColor}`}>{h.lastPrice.pctDay != null ? `${h.lastPrice.pctDay > 0 ? "+" : ""}${h.lastPrice.pctDay.toFixed(1)}%` : ""}<span className="text-muted-foreground"> · {h.lastPrice.asOf}</span></div></>) : <span className="text-muted-foreground">-</span>}</div>
-                    <div className="text-right tabular">{h.weight.toFixed(1)}%</div>
-                    <div>{h.alert && (link ? <Link {...link} title={`Open action for ${h.ticker}`} className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-destructive/10 transition"><AlertTriangle className="w-3.5 h-3.5 text-destructive" /></Link> : <span title={h.alert} className="inline-flex"><AlertTriangle className="w-3.5 h-3.5 text-destructive/50" /></span>)}</div>
-                  </div>
-                ); })}
-              </div>
+              <HoldingsTable holdings={client.portfolio.holdings} alertLinkFor={alertLinkFor} />
             </Section>
           </div>
         </div>
@@ -2454,6 +2442,107 @@ function CollapsibleCard({
         <div className={cn("bento-card-body border-t border-border/50 px-3 pb-4 pt-3", contentClassName)}>{children}</div>
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+// ── Resizable Holdings Table ──────────────────────────────────────────────────
+function HoldingsTable({ holdings, alertLinkFor }: {
+  holdings: ReturnType<typeof getClient>["portfolio"]["holdings"];
+  alertLinkFor: (ticker: string) => { to: "/recommendations/$id"; params: { id: string } } | { to: "/events/$id"; params: { id: string } } | null;
+}) {
+  const cols = ["Instrument", "ISIN / Valor", "Venue", "Last px", "Weight", ""];
+  const defaultWidths = [240, 150, 90, 120, 70, 36];
+  const [widths, setWidths] = useState<number[]>(defaultWidths);
+  const dragging = useRef<{ col: number; startX: number; startW: number } | null>(null);
+
+  function onMouseDown(col: number, e: React.MouseEvent) {
+    e.preventDefault();
+    dragging.current = { col, startX: e.clientX, startW: widths[col] };
+    const onMove = (ev: MouseEvent) => {
+      if (!dragging.current) return;
+      const delta = ev.clientX - dragging.current.startX;
+      setWidths(w => w.map((v, i) => i === dragging.current!.col ? Math.max(60, dragging.current!.startW + delta) : v));
+    };
+    const onUp = () => { dragging.current = null; window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
+
+  const totalW = widths.reduce((a, b) => a + b, 0);
+
+  return (
+    <div className="border border-border rounded overflow-hidden">
+      <div className="overflow-x-auto">
+        <table style={{ width: totalW, tableLayout: "fixed", borderCollapse: "collapse" }} className="text-sm">
+          <colgroup>{widths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
+          <thead>
+            <tr className="bg-secondary/40">
+              {cols.map((col, i) => (
+                <th key={i} className="relative text-left px-3 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold select-none" style={{ width: widths[i] }}>
+                  <span className={i >= 3 && i < 5 ? "block text-right" : ""}>{col}</span>
+                  {i < cols.length - 1 && (
+                    <div
+                      onMouseDown={(e) => onMouseDown(i, e)}
+                      className="absolute right-0 top-0 h-full w-3 cursor-col-resize flex items-center justify-center group z-10"
+                    >
+                      <div className="w-px h-4 bg-border group-hover:bg-accent transition-colors" />
+                    </div>
+                  )}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {holdings.map((h) => {
+              const link = h.alert ? alertLinkFor(h.ticker) : null;
+              const dayColor = h.lastPrice?.pctDay == null ? "text-muted-foreground" : h.lastPrice.pctDay > 0 ? "text-positive" : h.lastPrice.pctDay < 0 ? "text-destructive" : "text-muted-foreground";
+              return (
+                <tr key={h.ticker} className="border-t border-border hover:bg-secondary/20 transition-colors">
+                  <td className="px-3 py-3" style={{ width: widths[0] }}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-mono text-[11px] text-muted-foreground shrink-0">{h.ticker}</span>
+                      <span className="truncate font-medium">{h.name}</span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">{h.sector}{h.instrumentType ? ` · ${h.instrumentType}` : ""}</div>
+                    {h.alert && <div className="text-[11px] text-destructive mt-0.5 leading-snug">{h.alert}</div>}
+                  </td>
+                  <td className="px-3 py-3 font-mono text-[11px] leading-tight" style={{ width: widths[1] }}>
+                    <div>{h.isin ?? "-"}</div>
+                    <div className="text-muted-foreground">Valor {h.valor ?? "-"}</div>
+                  </td>
+                  <td className="px-3 py-3 font-mono text-[11px]" style={{ width: widths[2] }}>
+                    <div>{h.primaryMic ?? "-"}</div>
+                    <div className="text-muted-foreground">{h.venueCcy ?? ""}</div>
+                  </td>
+                  <td className="px-3 py-3 text-right tabular text-xs" style={{ width: widths[3] }}>
+                    {h.lastPrice ? (
+                      <>
+                        <div>{h.lastPrice.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-muted-foreground">{h.lastPrice.ccy}</span></div>
+                        <div className={`text-[10px] ${dayColor}`}>
+                          {h.lastPrice.pctDay != null ? `${h.lastPrice.pctDay > 0 ? "+" : ""}${h.lastPrice.pctDay.toFixed(1)}%` : ""}
+                          <span className="text-muted-foreground"> · {h.lastPrice.asOf}</span>
+                        </div>
+                      </>
+                    ) : <span className="text-muted-foreground">-</span>}
+                  </td>
+                  <td className="px-3 py-3 text-right tabular font-medium" style={{ width: widths[4] }}>{h.weight.toFixed(1)}%</td>
+                  <td className="px-3 py-3 text-center" style={{ width: widths[5] }}>
+                    {h.alert && (link
+                      ? <Link {...link} title={`Open action for ${h.ticker}`} className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-destructive/10 transition"><AlertTriangle className="w-3.5 h-3.5 text-destructive" /></Link>
+                      : <span title={h.alert} className="inline-flex"><AlertTriangle className="w-3.5 h-3.5 text-destructive/50" /></span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="px-4 py-2 border-t border-border bg-secondary/20 text-[10px] text-muted-foreground flex items-center justify-between gap-2">
+        <span className="flex items-center gap-2"><Sparkles className="w-3 h-3" />Identifiers and prices resolved live via SIX MCP.</span>
+        <img src="https://upload.wikimedia.org/wikipedia/commons/9/9e/SIX_Group_logo.svg" alt="SIX" className="h-3 w-auto opacity-60" />
+      </div>
+    </div>
   );
 }
 
