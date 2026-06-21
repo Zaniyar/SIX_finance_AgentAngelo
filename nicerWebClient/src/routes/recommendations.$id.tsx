@@ -280,7 +280,7 @@ function RecommendationDetail() {
       {allRecs.length > 1 && (
         <CollapsibleCard
           className="mb-8"
-          defaultOpen={false}
+          defaultOpen={true}
           accent="accent"
           triggerClassName="p-4"
           contentClassName="px-4 pb-4 pt-0"
@@ -2133,7 +2133,7 @@ function Section({
   }
 
   return (
-    <CollapsibleCard title={title} subtitle={subtitle} icon={icon} defaultOpen={defaultOpen} bento={bento} accent={accent}>
+    <CollapsibleCard title={title} subtitle={subtitle} icon={icon} defaultOpen={defaultOpen ?? true} bento={bento} accent={accent}>
       {children}
     </CollapsibleCard>
   );

@@ -10,8 +10,8 @@ import {
 } from "@/components/action-todo-tile";
 import { ActionTodoStack, STACK_CARD_W, type StackCard } from "@/components/action-todo-stack";
 import { ClientFlipCard } from "@/components/client-flip-card";
-import { recommendations, kpis, getClient, marketEvents } from "@/lib/mock-data";
-import { Sparkles, TrendingUp, Users, Wallet, LayoutList, LayoutGrid, ChevronDown, ChevronUp, ArrowRight } from "lucide-react";
+import { recommendations, kpis, getClient, marketEvents, type MarketEvent } from "@/lib/mock-data";
+import { Sparkles, TrendingUp, Users, Wallet, LayoutList, LayoutGrid, ChevronDown, ChevronUp, ArrowUpRight, AlertTriangle, Layers } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -97,13 +97,10 @@ function Dashboard() {
     [],
   );
 
-  // All events for list view
-  const allEvents = useMemo(() => marketEvents.map(e => ({
-    ...e,
-    categoryClass: categoryStyles[e.category] ?? categoryStyles.Macro,
-  })), []);
-
-  const visibleEvents = expandedEvents ? allEvents : allEvents.slice(0, 3);
+  const [expandRecs, setExpandRecs] = useState(false);
+  const highCount = recommendations.filter(r => r.priority === "High").length;
+  const visibleEvents = expandedEvents ? marketEvents : marketEvents.slice(0, 3);
+  const visibleRecs = expandRecs ? recommendations : recommendations.slice(0, 3);
 
   return (
     <AppShell>
@@ -153,7 +150,6 @@ function Dashboard() {
               ))}
             </div>
           </section>
-
           <section className="mb-16">
             <div className="mb-4 flex items-baseline justify-between">
               <h3 className="font-display text-3xl tracking-tight">Your book</h3>
@@ -168,95 +164,60 @@ function Dashboard() {
         </>
       ) : (
         <>
-          {/* LIST VIEW — matches the screenshot */}
-          <section className="mb-10">
-            <h2 className="font-display text-3xl tracking-tight mb-4">Next best actions</h2>
-            <div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
-              {visibleEvents.map((e) => (
-                <div key={e.id} className="flex items-center gap-4 px-5 py-4 bg-surface hover:bg-secondary/30 transition-colors group">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${e.kind === "Risk" ? "bg-destructive/10" : "bg-positive/10"}`}>
-                    {e.kind === "Risk"
-                      ? <span className="text-destructive text-xs">⚠</span>
-                      : <span className="text-positive text-xs">✦</span>}
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0 text-[10px] uppercase tracking-wider">
-                    <span className="text-muted-foreground">Event · {e.kind}</span>
-                    <span className={`px-2 py-0.5 rounded border text-[10px] font-medium ${e.categoryClass}`}>{e.category}</span>
-                    <span className="text-muted-foreground">⊗ {e.affected.length} clients affected</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground ml-auto flex-shrink-0">{e.date} CET</span>
-                  <Link to="/events/$id" params={{ id: e.id }}
-                    className="ml-4 flex-shrink-0 px-3 py-1.5 text-xs font-semibold bg-primary text-primary-foreground rounded-md hover:opacity-90 transition flex items-center gap-1.5">
-                    Brief <ArrowRight className="w-3 h-3" />
-                  </Link>
-                </div>
-              ))}
-              {/* Expanded rows show summary */}
-              {visibleEvents.map((e) => (
-                <div key={e.id + "-body"} className="px-5 py-3 bg-secondary/20 border-t-0">
-                  <div className="font-semibold text-sm mb-0.5">{e.title}</div>
-                  <div className="text-xs text-muted-foreground line-clamp-1">{e.summary}</div>
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={() => setExpandedEvents(v => !v)}
-              className="mt-3 w-full flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition py-2"
-            >
-              {expandedEvents ? <><ChevronUp className="w-3.5 h-3.5" /> Show less</> : <><ChevronDown className="w-3.5 h-3.5" /> Show all {allEvents.length} events</>}
-            </button>
-          </section>
+          {/* LIST VIEW — exact Lovable original */}
+          <div className="mb-5">
+            <h2 className="font-display text-3xl tracking-tight">Next best actions</h2>
+          </div>
 
-          {/* Client recommendation table */}
-          <section className="mb-10">
-            <div className="rounded-lg border border-border overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-secondary/40">
-                    <th className="text-left px-5 py-3 text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">Client</th>
-                    <th className="text-left px-5 py-3 text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">Strategy</th>
-                    <th className="text-left px-5 py-3 text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">Recommendation</th>
-                    <th className="text-left px-5 py-3 text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">Category</th>
-                    <th className="px-5 py-3 text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">Review</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {bookClients.map(({ client, rec }) => (
-                    <tr key={rec.id} className="bg-surface hover:bg-secondary/20 transition-colors">
-                      <td className="px-5 py-4">
-                        <div className="font-semibold">{client.name}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">{client.segment} · {fmtCHF(client.aum)}</div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="text-sm">{rec.outreach.style}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">{client.mandate}</div>
-                      </td>
-                      <td className="px-5 py-4 max-w-sm">
-                        <div className="font-medium text-sm">{rec.title}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{rec.advised}</div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className={`text-[10px] font-semibold px-2 py-1 rounded border uppercase tracking-wide ${categoryStyles[rec.category] ?? categoryStyles.Macro}`}>
-                          {rec.category}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <Link to="/recommendations/$id" params={{ id: rec.id }}
-                          className="text-xs font-semibold text-accent hover:underline flex items-center gap-1 justify-end">
-                          Review <ArrowRight className="w-3 h-3" />
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="px-5 py-3 border-t border-border bg-secondary/20 text-center">
-                <button className="text-xs text-muted-foreground hover:text-foreground transition flex items-center gap-1 mx-auto">
-                  <ChevronDown className="w-3.5 h-3.5" /> Show all {recommendations.length} actions
-                </button>
+          <div className="bg-surface border border-border rounded-lg overflow-hidden mb-8">
+            {visibleEvents.map((e) => <EventRow key={e.id} event={e} />)}
+            {marketEvents.length > 3 && (
+              <button onClick={() => setExpandedEvents(v => !v)}
+                className="w-full px-6 py-3 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/30 transition-colors flex items-center justify-center gap-1.5 border-t border-border">
+                {expandedEvents ? <><ChevronUp className="w-3.5 h-3.5" /> Show less</> : <>Show all {marketEvents.length} events <ChevronDown className="w-3.5 h-3.5" /></>}
+              </button>
+            )}
+          </div>
+
+          <div className="bg-surface border border-border rounded-lg overflow-hidden mb-16">
+            {recommendations.length > 0 && (
+              <div className="grid grid-cols-[1fr_1fr_2.5fr_90px_70px] gap-5 px-6 py-3 border-b border-border bg-secondary/40 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                <div>Client</div><div>Strategy</div><div>Recommendation</div><div>Category</div><div className="text-right">Review</div>
               </div>
-            </div>
-          </section>
+            )}
+            {visibleRecs.map((rec) => {
+              const c = getClient(rec.clientId);
+              return (
+                <Link key={rec.id} to="/recommendations/$id" params={{ id: rec.id }}
+                  className="grid grid-cols-[1fr_1fr_2.5fr_90px_70px] gap-5 px-6 py-5 border-b border-border last:border-b-0 hover:bg-secondary/30 transition-colors items-center group">
+                  <div>
+                    <div className="font-medium">{c.name}</div>
+                    <div className="text-xs text-muted-foreground tabular">{c.segment} · {fmtCHF(c.aum)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm">{c.strategy}</div>
+                    <div className="text-xs text-muted-foreground">{c.mandate}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm leading-snug">{rec.title}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5 leading-snug">{rec.advised}</div>
+                  </div>
+                  <div>
+                    <span className={`inline-flex items-center text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border whitespace-nowrap ${categoryStyles[rec.category] ?? categoryStyles.Macro}`}>{rec.category}</span>
+                  </div>
+                  <div className="flex items-center justify-end gap-1 text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                    Review <ArrowUpRight className="w-3.5 h-3.5" />
+                  </div>
+                </Link>
+              );
+            })}
+            {recommendations.length > 3 && (
+              <button onClick={() => setExpandRecs(v => !v)}
+                className="w-full px-6 py-3 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/30 transition-colors flex items-center justify-center gap-1.5 border-t border-border">
+                {expandRecs ? <><ChevronUp className="w-3.5 h-3.5" /> Show less</> : <>Show all {recommendations.length} actions <ChevronDown className="w-3.5 h-3.5" /></>}
+              </button>
+            )}
+          </div>
         </>
       )}
 
@@ -275,6 +236,60 @@ function Dashboard() {
         </div>
       </section>
     </AppShell>
+  );
+}
+
+function EventRow({ event: e }: { event: MarketEvent }) {
+  const isOpp = e.kind === "Opportunity";
+  const iconWrap = isOpp ? "bg-positive/10 text-positive" : "bg-destructive/10 text-destructive";
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-b border-border last:border-b-0">
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className="w-full text-left px-6 py-4 flex items-center gap-4 hover:bg-secondary/20 transition-colors" aria-expanded={open}>
+        <div className={`w-9 h-9 rounded-full ${iconWrap} flex items-center justify-center shrink-0`}>
+          {isOpp ? <Sparkles className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border bg-background text-foreground/70">Event · {e.kind}</span>
+            <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border ${categoryStyles[e.category] ?? ""}`}>{e.category}</span>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground inline-flex items-center gap-1">
+              <Layers className="w-3 h-3" /> {e.affected.length} client{e.affected.length > 1 ? "s" : ""} affected
+            </span>
+            <span className="text-[10px] text-muted-foreground tabular ml-auto">{e.date}</span>
+          </div>
+          <div className="font-medium leading-snug truncate">{e.title}</div>
+          <div className="text-xs text-muted-foreground leading-snug line-clamp-1">{e.summary}</div>
+        </div>
+        <div className="shrink-0 flex items-center gap-2">
+          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+          <Link to="/events/$id" params={{ id: e.id }} onClick={(ev) => ev.stopPropagation()}
+            className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:opacity-90 transition inline-flex items-center gap-1.5">
+            Brief <ArrowUpRight className="w-3 h-3" />
+          </Link>
+        </div>
+      </button>
+      {open && (
+        <div className="px-6 pb-5 pl-[88px] space-y-1">
+          {e.affected.map((a) => {
+            const c = getClient(a.clientId);
+            const metric = isOpp ? `Fit ${a.fitScore}/100` : `${(a.exposurePct ?? 0).toFixed(1)}% · ${fmtCHF(a.exposureChf ?? 0)}`;
+            return (
+              <Link key={a.clientId} to="/events/$id" params={{ id: e.id }}
+                className="flex items-center gap-3 py-2 px-3 -mx-3 rounded hover:bg-secondary/40 transition-colors group">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm truncate">{c.name}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">{isOpp ? a.fitReason : `${c.preferredChannel} · ${c.timezone}`}</div>
+                </div>
+                <div className="text-xs tabular text-muted-foreground whitespace-nowrap">{metric}</div>
+                <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
