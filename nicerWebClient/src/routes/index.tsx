@@ -265,11 +265,17 @@ function EventRow({ event: e }: { event: MarketEvent }) {
         </div>
         <div className="shrink-0 flex items-center gap-2">
           <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
-          {e.kind === "Risk" && (
-            <div onClick={(ev) => ev.stopPropagation()}>
-              <AngeloCallButton clientId={e.affected[0]?.clientId ?? "schneider"} clientName={e.affected[0]?.clientId ?? "client"} className="scale-90 origin-right" />
-            </div>
-          )}
+          {e.kind === "Risk" && (() => {
+            const rawId = e.affected[0]?.clientId ?? "";
+            const backendId = rawId.replace(/^c-/, "");
+            const backendClients = ["schneider","huber","raeber","ammann"];
+            if (!backendClients.includes(backendId)) return null;
+            return (
+              <div onClick={(ev) => ev.stopPropagation()}>
+                <AngeloCallButton clientId={backendId} clientName={backendId} className="scale-90 origin-right" />
+              </div>
+            );
+          })()}
           <Link to="/events/$id" params={{ id: e.id }} onClick={(ev) => ev.stopPropagation()}
             className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:opacity-90 transition inline-flex items-center gap-1.5">
             Brief <ArrowUpRight className="w-3 h-3" />
