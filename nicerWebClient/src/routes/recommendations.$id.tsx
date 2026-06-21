@@ -2453,7 +2453,7 @@ function HoldingsTable({ holdings, alertLinkFor }: {
   const cols = ["Instrument", "ISIN / Valor", "Venue", "Last px", "Weight", ""];
   const defaultWidths = [240, 150, 90, 120, 70, 36];
   const [widths, setWidths] = useState<number[]>(defaultWidths);
-  const dragging = useRef<{ col: number; startX: number; startW: number } | null>(null);
+  const dragging = { current: null as { col: number; startX: number; startW: number } | null };
 
   function onMouseDown(col: number, e: React.MouseEvent) {
     e.preventDefault();
