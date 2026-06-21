@@ -11,6 +11,7 @@ export interface ClientSummary {
   location: { city: string; country: string; lat: number; lng: number };
   direction: "conflict" | "opportunity";
   event: string;
+  dnaHook: string;
   avatarUrl?: string;
 }
 
@@ -80,6 +81,8 @@ export interface ClientDetail {
   generatedAt: string;
 }
 
+export interface HighlightGroup { topic: string; color: string; terms: string[]; }
+
 export interface DraftMessage { subject: string; body: string; tone: string; }
 
 export interface IntegrationProbe {
@@ -106,6 +109,7 @@ export const api = {
   draft: (id: string, alertId?: string) => post<DraftMessage>(`/api/clients/${id}/draft`, { alertId }),
   twinChat: (id: string, messages: { role: string; content: string }[]) =>
     post<{ reply: string }>(`/api/twin/${id}/chat`, { messages }),
+  highlights: (id: string) => get<{ groups: HighlightGroup[] }>(`/api/clients/${id}/highlights`),
   integrations: () => get<{ probes: IntegrationProbe[] }>("/api/integrations"),
 };
 

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { api, ClientSummary } from "../api";
+import { api, ClientSummary, HighlightGroup } from "../api";
 
 // ── Design tokens (BikeTausch style) ─────────────────────────────────────────
 const T = {
@@ -38,14 +38,34 @@ const LIGHT_MAP_STYLE = {
   layers: [{ id: "carto-layer", type: "raster" as const, source: "carto" }],
 };
 
+const CARD_W = 340;
+const CARD_OFFSET_Y = 16; // gap between bubble bottom and card top
+
 export default function Dashboard() {
   const [clients, setClients] = useState<ClientSummary[]>([]);
   const [active, setActive] = useState<string | null>(null);
+  // pixel position of the active marker on the map canvas
+  const [markerPx, setMarkerPx] = useState<{ x: number; y: number } | null>(null);
   const nav = useNavigate();
   const mapRef = useRef<maplibregl.Map | null>(null);
   const mapEl = useRef<HTMLDivElement>(null);
   const markersRef = useRef<Record<string, maplibregl.Marker>>({});
   const didFlyRef = useRef(false);
+
+  // Recompute marker pixel pos; always place card BELOW the bubble
+  const updateMarkerPx = (clientId: string | null) => {
+    const map = mapRef.current;
+    const container = mapEl.current;
+    if (!map || !container || !clientId) { setMarkerPx(null); return; }
+    const coords = CLIENT_COORDS[clientId];
+    if (!coords) { setMarkerPx(null); return; }
+    const pt = map.project(coords as [number, number]);
+    const containerW = container.clientWidth;
+    const BUBBLE_R = 20; // half of 40px bubble
+    const left = Math.max(8, Math.min(containerW - CARD_W - 8, pt.x - CARD_W / 2));
+    const top = pt.y + BUBBLE_R + CARD_OFFSET_Y;
+    setMarkerPx({ x: left, y: top });
+  };
 
   useEffect(() => {
     api.clients().then((cs) => {
@@ -112,7 +132,10 @@ export default function Dashboard() {
           img.style.transform = "scale(1)";
           el.style.borderColor = T.black;
         });
-        el.addEventListener("click", () => setActive(c.id));
+        el.addEventListener("click", () => {
+          setActive(c.id);
+          updateMarkerPx(c.id);
+        });
 
         const marker = new maplibregl.Marker({ element: el, anchor: "center" })
           .setLngLat(coords).addTo(map);
@@ -132,11 +155,17 @@ export default function Dashboard() {
       });
     };
 
-    if (map.loaded()) addMarkers();
-    else map.on("load", addMarkers);
+    const onReady = () => {
+      addMarkers();
+      // Compute initial card position once markers are placed
+      requestAnimationFrame(() => updateMarkerPx(active));
+    };
+
+    if (map.loaded()) onReady();
+    else map.on("load", onReady);
   }, [clients]);
 
-  // Active marker + fly
+  // Active marker + fly + track card position
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !active) return;
@@ -154,11 +183,18 @@ export default function Dashboard() {
       if (innerImg) innerImg.style.transform = isAct ? "scale(1.12)" : "scale(1)";
     });
 
+    const onMove = () => updateMarkerPx(active);
+    map.on("move", onMove);
+    // Initial position (computed after any pending frame)
+    requestAnimationFrame(() => updateMarkerPx(active));
+
     if (didFlyRef.current) {
       map.flyTo({ center: coords, zoom: 8.5, duration: 1200, essential: true });
     } else {
       didFlyRef.current = true;
     }
+
+    return () => { map.off("move", onMove); };
   }, [active, clients]);
 
   const conflicts = clients.filter(c => c.direction === "conflict").length;
@@ -221,76 +257,27 @@ export default function Dashboard() {
         <div style={{ position: "relative", overflow: "hidden" }}>
           <div ref={mapEl} style={{ width: "100%", height: "100%" }} />
 
-          {/* Active client card — BikeTausch sharp card style */}
+          {/* Active client card — anchored below the clicked bubble */}
           <AnimatePresence>
-            {activeClient && (
+            {activeClient && markerPx && (
               <motion.div key={activeClient.id}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                initial={{ opacity: 0, scaleY: 0.6, scaleX: 0.92, y: -8 }}
+                animate={{ opacity: 1, scaleY: 1, scaleX: 1, y: 0 }}
+                exit={{ opacity: 0, scaleY: 0.5, scaleX: 0.92, y: -6 }}
+                transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
                 style={{
-                  position: "absolute", bottom: 24, left: 24, width: 340,
+                  position: "absolute",
+                  top: markerPx.y,
+                  left: markerPx.x,
+                  width: CARD_W,
+                  transformOrigin: "top center",
                   background: T.white,
                   border: `1px solid ${T.black}`,
                   zIndex: 10,
+                  pointerEvents: "auto",
                 }}
               >
-                {/* Card header */}
-                <div style={{ padding: "16px 18px 14px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: `1px solid ${T.grayBorder}` }}>
-                  <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-                    <div style={{ width: 48, height: 48, border: `1px solid ${T.black}`, borderRadius: "50%", overflow: "hidden", flexShrink: 0 }}>
-                      <img src={`/profiles/${activeClient.id}.png`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>{activeClient.displayName}</div>
-                      <div style={{ fontSize: 10, color: T.grayLight, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 3 }}>
-                        {activeClient.mandate} · {activeClient.location.city}
-                      </div>
-                    </div>
-                  </div>
-                  <DirectionTag direction={activeClient.direction} />
-                </div>
-
-                {/* Why now */}
-                <div style={{ padding: "12px 18px 16px" }}>
-                  <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: T.grayLight, marginBottom: 6 }}>Why now</div>
-                  <div style={{ fontSize: 13, lineHeight: 1.55, color: T.gray }}>{activeClient.event}</div>
-
-                  {/* Buttons */}
-                  <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-                    <motion.button
-                      whileHover={{ y: -2 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => nav(`/client/${activeClient.id}`)}
-                      transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                      style={{
-                        flex: 1, padding: "10px 0",
-                        background: T.black, color: T.white,
-                        border: "none", cursor: "pointer",
-                        fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase",
-                        fontFamily: "inherit",
-                      }}
-                    >
-                      {activeClient.direction === "conflict" ? "Review Alert →" : "See Opportunity →"}
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ y: -2 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => nav(`/client/${activeClient.id}/twin`)}
-                      transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                      style={{
-                        padding: "10px 16px",
-                        background: T.white, color: T.black,
-                        border: `1px solid ${T.black}`, cursor: "pointer",
-                        fontSize: 11, fontWeight: 600, letterSpacing: "0.1em",
-                        fontFamily: "inherit",
-                      }}
-                    >
-                      ◢ Twin
-                    </motion.button>
-                  </div>
-                </div>
+                <ClientMapCard client={activeClient} onOpen={() => nav(`/client/${activeClient.id}`)} onTwin={() => nav(`/client/${activeClient.id}/twin`)} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -382,6 +369,132 @@ export default function Dashboard() {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
+/** Splits `text` and wraps matched terms in bold+colored spans. */
+function HighlightedText({ text, groups, baseColor }: { text: string; groups: HighlightGroup[]; baseColor: string }) {
+  // Build one regex that matches any term across all groups, longest first to avoid partial overlaps
+  const allTerms = groups.flatMap(g => g.terms).sort((a, b) => b.length - a.length);
+  if (!allTerms.length) return <span style={{ color: baseColor }}>{text}</span>;
+
+  const escaped = allTerms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const re = new RegExp(`(${escaped.join("|")})`, "gi");
+  const parts = text.split(re);
+
+  return (
+    <span style={{ color: baseColor }}>
+      {parts.map((part, i) => {
+        const group = groups.find(g =>
+          g.terms.some(t => t.toLowerCase() === part.toLowerCase())
+        );
+        if (!group) return part;
+        return (
+          <strong key={i} style={{ color: group.color, fontWeight: 700 }}>{part}</strong>
+        );
+      })}
+    </span>
+  );
+}
+
+function ClientMapCard({ client: c, onOpen, onTwin }: { client: ClientSummary; onOpen: () => void; onTwin: () => void }) {
+  const [whyNowOpen, setWhyNowOpen] = useState(false);
+  const [whyClientOpen, setWhyClientOpen] = useState(false);
+  const [highlights, setHighlights] = useState<HighlightGroup[]>([]);
+  const accent = c.direction === "conflict" ? T.red : T.green;
+
+  useEffect(() => {
+    api.highlights(c.id)
+      .then(({ groups }) => setHighlights(groups))
+      .catch(() => { /* non-blocking — plain text fallback */ });
+  }, [c.id]);
+
+  return (
+    <>
+      {/* Arrow connector */}
+      <div style={{ position: "absolute", top: -7, left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "7px solid transparent", borderRight: "7px solid transparent", borderBottom: `7px solid ${T.black}` }} />
+      <div style={{ position: "absolute", top: -5, left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderBottom: `6px solid ${T.white}` }} />
+
+      {/* Header */}
+      <div style={{ padding: "14px 16px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${T.grayBorder}` }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <div style={{ width: 40, height: 40, border: `1px solid ${T.black}`, borderRadius: "50%", overflow: "hidden", flexShrink: 0 }}>
+            <img src={`/profiles/${c.id}.png`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13, lineHeight: 1.2 }}>{c.displayName}</div>
+            <div style={{ fontSize: 9.5, color: T.grayLight, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 2 }}>{c.mandate} · {c.location.city}</div>
+          </div>
+        </div>
+        <DirectionTag direction={c.direction} />
+      </div>
+
+      {/* Collapsible: Why now */}
+      <div style={{ borderBottom: `1px solid ${T.grayBorder}` }}>
+        <button
+          onClick={() => setWhyNowOpen(o => !o)}
+          style={{ width: "100%", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+        >
+          <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: T.grayLight }}>Why now</span>
+          <motion.span animate={{ rotate: whyNowOpen ? 180 : 0 }} transition={{ duration: 0.18 }} style={{ display: "block", fontSize: 10, color: T.grayLight, lineHeight: 1 }}>▾</motion.span>
+        </button>
+        <AnimatePresence initial={false}>
+          {whyNowOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              style={{ overflow: "hidden" }}
+            >
+              <div style={{ padding: "0 16px 12px", fontSize: 12, lineHeight: 1.55 }}>
+                <HighlightedText text={c.event} groups={highlights} baseColor={T.gray} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Collapsible: Why this client */}
+      <div style={{ borderBottom: `1px solid ${T.grayBorder}` }}>
+        <button
+          onClick={() => setWhyClientOpen(o => !o)}
+          style={{ width: "100%", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+        >
+          <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: accent }}>Why this client</span>
+          <motion.span animate={{ rotate: whyClientOpen ? 180 : 0 }} transition={{ duration: 0.18 }} style={{ display: "block", fontSize: 10, color: accent, lineHeight: 1 }}>▾</motion.span>
+        </button>
+        <AnimatePresence initial={false}>
+          {whyClientOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              style={{ overflow: "hidden" }}
+            >
+              <div style={{ padding: "0 16px 12px", fontSize: 12, lineHeight: 1.5 }}>
+                <HighlightedText text={c.dnaHook} groups={highlights} baseColor={T.black} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Buttons */}
+      <div style={{ display: "flex", gap: 8, padding: "12px 14px" }}>
+        <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }} onClick={onOpen}
+          transition={{ type: "spring", stiffness: 400, damping: 20 }}
+          style={{ flex: 1, padding: "9px 0", background: T.black, color: T.white, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "inherit" }}>
+          {c.direction === "conflict" ? "Review Alert →" : "See Opportunity →"}
+        </motion.button>
+        <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }} onClick={onTwin}
+          transition={{ type: "spring", stiffness: 400, damping: 20 }}
+          style={{ padding: "9px 14px", background: T.white, color: T.black, border: `1px solid ${T.black}`, cursor: "pointer", fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", fontFamily: "inherit" }}>
+          ◢ Twin
+        </motion.button>
+      </div>
+    </>
+  );
+}
+
 function ClientRow({ client: c, rank, isActive, onSelect, onOpen }: {
   client: ClientSummary; rank: number; isActive: boolean;
   onSelect: () => void; onOpen: () => void;
@@ -433,7 +546,9 @@ function ClientRow({ client: c, rank, isActive, onSelect, onOpen }: {
             >
               <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.grayBorder}` }}>
                 <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: T.grayLight, marginBottom: 5 }}>Why now</div>
-                <div style={{ fontSize: 12, color: T.gray, lineHeight: 1.55, marginBottom: 12 }}>{c.event}</div>
+                <div style={{ fontSize: 12, color: T.gray, lineHeight: 1.55, marginBottom: 10 }}>{c.event}</div>
+                <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: conflict ? T.red : T.green, marginBottom: 5 }}>Why this client</div>
+                <div style={{ fontSize: 12, color: T.black, lineHeight: 1.5, marginBottom: 12 }}>{c.dnaHook}</div>
                 <motion.button
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.97 }}

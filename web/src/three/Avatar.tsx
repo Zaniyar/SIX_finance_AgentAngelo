@@ -143,10 +143,10 @@ class GlbBoundary extends Component<{ fallback: ReactNode; children: ReactNode }
 }
 
 export default function Avatar({ driver, url, speaking }: AvatarProps) {
-  if (!url) return <PlaceholderAvatar driver={driver} />;
+  if (!url) return null;
   return (
-    <GlbBoundary fallback={<PlaceholderAvatar driver={driver} />}>
-      <Suspense fallback={<PlaceholderAvatar driver={driver} />}>
+    <GlbBoundary fallback={null}>
+      <Suspense fallback={null}>
         <GltfAvatar driver={driver} url={url} speaking={speaking} />
       </Suspense>
     </GlbBoundary>

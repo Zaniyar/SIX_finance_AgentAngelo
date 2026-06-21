@@ -8,6 +8,7 @@ import { buildAlerts } from "../advisory/alerts";
 import { draftMessage } from "../advisory/draft";
 import { twinReply } from "../advisory/twin";
 import { buildDnaGaps } from "../advisory/gaps";
+import { buildHighlights } from "../advisory/highlights";
 import { buildMemoryCard } from "../advisory/memoryCard";
 import { buildActionCard } from "../advisory/actionCard";
 import { buildActionPack } from "../advisory/actionPack";
@@ -57,9 +58,20 @@ router.get("/clients", (_req, res) => {
     location: c.location,
     direction: c.scenario.direction,
     event: c.scenario.event,
+    dnaHook: c.scenario.dnaHook,
     avatarUrl: c.avatarUrl,
   }));
   ok(res, list);
+});
+
+// ── GET /api/clients/:id/highlights ──────────────────────────────────────────
+router.get("/clients/:id/highlights", async (req: Request, res: Response) => {
+  const client = getClient(req.params.id);
+  if (!client) return fail(res, new Error("unknown client"), 404);
+  try {
+    const groups = await buildHighlights(client.scenario.event, client.scenario.dnaHook, phoeniqs).catch(() => []);
+    ok(res, { groups });
+  } catch (error) { fail(res, error); }
 });
 
 // ── GET /api/clients/:id ──────────────────────────────────────────────────────
@@ -362,6 +374,147 @@ router.get("/news", async (req: Request, res: Response) => {
     const articles = await news.getLatestNews(q, 8);
     ok(res, { articles, sentiment: news.analyzeNewsSentiment(articles) });
   } catch (error) { fail(res, error); }
+});
+
+// ── POST /api/copilot-chat ────────────────────────────────────────────────────
+// Streaming chat endpoint for the nicerWebClient copilot.
+// Uses Phoeniqs (already configured) — no extra API keys needed on the frontend.
+router.post("/copilot-chat", async (req: Request, res: Response) => {
+  const { messages, context } = req.body as { messages?: ChatMessage[]; context?: string };
+  if (!Array.isArray(messages)) return fail(res, new Error("messages[] required"), 400);
+  if (!phoeniqs.configured) return fail(res, new Error("Phoeniqs not configured — set PHOENIQS_API_KEY"), 503);
+
+  const system =
+    `You are the Relationship Intelligence Copilot for Sarah Meier, a Relationship Manager at a Swiss private bank.\n` +
+    `You help her reason across her entire book of clients. You have full visibility on portfolios, client DNA, open recommendations, and live market events.\n\n` +
+    `When the RM mentions a company, ticker, fraud event, macro event or theme:\n` +
+    `- Identify which of her clients are exposed (use the provided data, not assumptions).\n` +
+    `- Rank them by urgency: severity of the event × absolute CHF exposure × client risk sensitivity.\n` +
+    `- Propose concrete next steps per client: trim/exit/hold, preferred channel given client DNA & timezone, and a one-line message tone.\n` +
+    `- Cite the data point you used (e.g. "Räber · CIO TAA conflicts with mandate exclusion").\n` +
+    `- Always use the client's full name (e.g. "Hubertus Schneider", "Martin Huber") so they can be identified.\n\n` +
+    `Format your response with markdown:\n` +
+    `- Use **bold** for client names and key figures.\n` +
+    `- Use bullet lists for per-client breakdowns.\n` +
+    `- Use markdown tables when comparing multiple clients side-by-side.\n` +
+    `- Use headers (##) to separate major sections.\n` +
+    `- Keep it structured, concise, and numerate.\n\n` +
+    `Never invent holdings, prices, or sources not in the data. If something is unknown, say so plainly.` +
+    (context ? `\n\n# BOOK DATA (JSON)\n${context}` : "");
+
+  const fullMessages: ChatMessage[] = [{ role: "system", content: system }, ...messages];
+
+  try {
+    // Stream via SSE so the frontend can render tokens as they arrive
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    // Phoeniqs service does a single call — stream the response as one chunk
+    const reply = await phoeniqs.chat(fullMessages, { temperature: 0.4, maxTokens: 3000 });
+
+    // Emit as a single data event (compatible with the fetch-based streaming reader)
+    res.write(`data: ${JSON.stringify({ reply })}\n\n`);
+    res.end();
+  } catch (error) {
+    res.write(`data: ${JSON.stringify({ error: (error as Error).message })}\n\n`);
+    res.end();
+  }
+});
+
+// ── POST /api/recommendation-chat ─────────────────────────────────────────────
+// Context-aware chat for a single client recommendation page (nicerWebClient).
+router.post("/recommendation-chat", async (req: Request, res: Response) => {
+  const { messages, context } = req.body as { messages?: ChatMessage[]; context?: string };
+  if (!Array.isArray(messages)) return fail(res, new Error("messages[] required"), 400);
+  if (!context) return fail(res, new Error("context required"), 400);
+  if (!phoeniqs.configured) return fail(res, new Error("Phoeniqs not configured — set PHOENIQS_API_KEY"), 503);
+
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(context) as Record<string, unknown>;
+  } catch {
+    return fail(res, new Error("context must be valid JSON"), 400);
+  }
+
+  const client = parsed.client as {
+    name?: string;
+    preferredChannel?: string;
+    portfolio?: { holdings?: { ticker?: string; name?: string; alert?: string }[] };
+  } | undefined;
+  const holdings = client?.portfolio?.holdings ?? [];
+  const alertHoldings = holdings.filter((h) => h.alert).slice(0, 3);
+  const newsQuery = alertHoldings[0]?.name || alertHoldings[0]?.ticker || client?.name || "markets";
+
+  const [sixProbe, newsProbe, phoeniqsProbe] = await Promise.all([
+    six.ping().catch(() => ({ ok: false, configured: six.configured, name: "SIX MCP" })),
+    news.ping().catch(() => ({ ok: false, configured: news.configured, name: "News" })),
+    phoeniqs.ping().catch(() => ({ ok: false, configured: phoeniqs.configured, name: "Phoeniqs" })),
+  ]);
+
+  const liveData: Record<string, unknown> = {
+    integrationStatus: { six: sixProbe, news: newsProbe, phoeniqs: phoeniqsProbe },
+  };
+
+  if (news.configured) {
+    try {
+      liveData.latestNews = await news.getLatestNews(String(newsQuery), 6);
+    } catch {
+      liveData.latestNews = [];
+    }
+  }
+
+  if (six.configured && alertHoldings.length > 0) {
+    const prices: Record<string, unknown> = {};
+    await Promise.all(
+      alertHoldings.map(async (h) => {
+        if (!h.ticker) return;
+        try {
+          prices[h.ticker] = await six.getStockPrice(h.name || h.ticker);
+        } catch {
+          prices[h.ticker] = null;
+        }
+      }),
+    );
+    liveData.sixPrices = prices;
+  }
+
+  const system =
+    `You are the Client Context Assistant for Sarah Meier, a Relationship Manager at a Swiss private bank.\n` +
+    `You are embedded on a single client's recommendation page. Answer ONLY about this client and the open recommendation(s) in the provided context.\n\n` +
+    `You have read access to the full recommendation brief:\n` +
+    `- Proposed action, Why this matters, Storyline & evidence\n` +
+    `- AI confidence, What could go wrong, Alternatives considered\n` +
+    `- The human spark, Business value for the bank, Compliance & regulatory\n\n` +
+    `Live integrations (use when relevant — data is appended below):\n` +
+    `- **Phoeniqs LLM** — you are running on this\n` +
+    `- **SIX MCP** — live prices for flagged holdings when available in LIVE DATA\n` +
+    `- **Event Registry / News** — latest headlines in LIVE DATA\n\n` +
+    `Rules:\n` +
+    `- Ground every answer in CONTEXT JSON or LIVE DATA. Never invent holdings, prices, or regulatory facts.\n` +
+    `- Prefer the client's preferred channel (${(client as { preferredChannel?: string })?.preferredChannel ?? "see context"}) and DNA when suggesting outreach.\n` +
+    `- Use markdown: **bold** for key figures, bullets for lists, ## for sections.\n` +
+    `- If asked something outside this client or missing from data, say what is unknown and what you'd need.\n` +
+    `- Keep answers concise and RM-actionable.\n\n` +
+    `# CONTEXT (JSON)\n${JSON.stringify(parsed)}\n\n` +
+    `# LIVE DATA (integrations)\n${JSON.stringify(liveData)}`;
+
+  const fullMessages: ChatMessage[] = [{ role: "system", content: system }, ...messages];
+
+  try {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    const reply = await phoeniqs.chat(fullMessages, { temperature: 0.35, maxTokens: 2500 });
+    res.write(`data: ${JSON.stringify({ reply })}\n\n`);
+    res.end();
+  } catch (error) {
+    res.write(`data: ${JSON.stringify({ error: (error as Error).message })}\n\n`);
+    res.end();
+  }
 });
 
 // ── GET /api/integrations (alias: /api/health/integrations) ──────────────────

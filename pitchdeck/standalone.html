@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agent Angelo - AURA Pitch</title>
+    <link rel="stylesheet" href="./node_modules/reveal.js/dist/reveal.css" />
+    <style>
+      :root {
+        --ink: #07090d;
+        --paper: #f4f2eb;
+        --white: #fffefa;
+        --aqua: #41e0c1;
+        --blue: #2f5bff;
+        --red: #ff3b2f;
+        --green: #0e7c66;
+        --muted: #66645e;
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      }
+
+      html, body { margin: 0; background: var(--ink); }
+      .reveal { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; letter-spacing: 0; }
+      .reveal .slides { text-align: left; }
+      .reveal section { box-sizing: border-box; height: 100%; padding: 58px 68px; overflow: hidden; }
+      .reveal h1, .reveal h2, .reveal h3, .reveal p { margin: 0; letter-spacing: 0; text-transform: none; font-family: inherit; }
+      .reveal h1 { color: var(--white); font-size: 88px; line-height: 0.93; font-weight: 760; max-width: 860px; }
+      .reveal h2 { color: var(--ink); font-size: 66px; line-height: 0.96; font-weight: 760; max-width: 1080px; }
+      .dark h2 { color: var(--white); }
+      .eyebrow { color: var(--aqua); font-family: "SF Mono", Menlo, monospace; font-size: 16px; letter-spacing: 0.15em !important; text-transform: uppercase !important; font-weight: 800; margin-bottom: 22px !important; }
+      .eyebrow.darkText { color: var(--green); }
+      .lead { color: rgba(255,255,255,0.78); font-size: 29px; line-height: 1.28; max-width: 760px; margin-top: 28px !important; }
+      .hero { position: relative; background: #07090d; }
+      .hero:before { content: ""; position: absolute; inset: -25%; background: radial-gradient(circle at 18% 25%, rgba(65,224,193,0.45), transparent 22%), radial-gradient(circle at 76% 24%, rgba(47,91,255,0.48), transparent 24%), radial-gradient(circle at 58% 76%, rgba(255,59,47,0.24), transparent 22%), linear-gradient(145deg, #07090d 10%, #121832 55%, #07100d 100%); filter: blur(12px); animation: drift 12s cubic-bezier(.16,1,.3,1) infinite alternate; }
+      @keyframes drift { from { transform: scale(1) translate(-1%, -1%); } to { transform: scale(1.08) translate(1%, 1%); } }
+      .heroGrid { position: relative; z-index: 2; height: 100%; display: grid; grid-template-columns: 1.05fr .95fr; gap: 54px; align-items: center; }
+      .topline { position: absolute; z-index: 3; inset: 32px 48px auto 48px; display: flex; justify-content: space-between; color: rgba(255,255,255,.68); font: 13px "SF Mono", Menlo, monospace; letter-spacing: .12em; text-transform: uppercase; }
+      .team { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 48px; max-width: 760px; }
+      .team span { color: var(--white); border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.08); padding: 12px 16px; border-radius: 999px; font-size: 18px; }
+      .auraCard { position: relative; height: 620px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.06); backdrop-filter: blur(18px); overflow: hidden; }
+      .core { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 214px; height: 214px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); background: conic-gradient(from 160deg, var(--aqua), var(--white), #ffe37a, var(--red), var(--aqua)); font-size: 42px; font-weight: 840; animation: breathe 3s ease-in-out infinite; }
+      @keyframes breathe { 0%,100% { scale: 1; } 50% { scale: 1.05; } }
+      .ring { position: absolute; left: 50%; top: 50%; border: 1px solid rgba(255,255,255,.21); border-radius: 50%; transform: translate(-50%,-50%); animation: spin 24s linear infinite; }
+      .r1 { width: 350px; height: 350px; } .r2 { width: 490px; height: 490px; animation-direction: reverse; } .r3 { width: 650px; height: 650px; animation-duration: 38s; }
+      @keyframes spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
+      .tag { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); color: var(--white); background: rgba(8,10,15,.82); border: 1px solid rgba(255,255,255,.2); padding: 8px 12px; border-radius: 999px; font-size: 15px; font-weight: 760; }
+      .faces { position: absolute; right: 34px; bottom: 34px; display: flex; }
+      .faces img { width: 72px; height: 72px; border-radius: 50%; border: 3px solid #07090d; margin-left: -16px; object-fit: cover; }
+      .split { height: 100%; display: grid; grid-template-columns: .92fr 1.08fr; gap: 66px; align-items: center; background: var(--paper); }
+      .bodyText { margin-top: 28px !important; color: #45433e; font-size: 28px; line-height: 1.32; }
+      .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+      .metric { min-height: 210px; background: var(--white); border: 1px solid rgba(8,10,15,.14); padding: 24px; display: flex; flex-direction: column; justify-content: space-between; }
+      .metric b { font-size: 78px; line-height: .9; } .metric span { color: #57554f; font-size: 20px; line-height: 1.2; } .red b { color: var(--red); } .green b { color: var(--green); }
+      .curve { grid-column: 1 / -1; background: var(--ink); min-height: 320px; padding: 28px; color: var(--white); font-size: 28px; font-weight: 760; }
+      .curve svg { width: 100%; height: 210px; } .curve path { fill: none; stroke: var(--red); stroke-width: 10; stroke-linecap: round; stroke-dasharray: 800; stroke-dashoffset: 800; animation: draw 2s cubic-bezier(.16,1,.3,1) forwards; } .curve line { stroke: rgba(255,255,255,.42); stroke-width: 5; }
+      @keyframes draw { to { stroke-dashoffset: 0; } }
+      .dark { background: #07090d; color: var(--white); }
+      .product { margin-top: 38px; display: grid; grid-template-columns: 1.08fr .92fr; min-height: 560px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.04); }
+      .map { position: relative; background: #eef1ed; overflow: hidden; }
+      .map:before { content: ""; position: absolute; inset: -30px; background: linear-gradient(rgba(8,10,15,.08) 1px, transparent 1px), linear-gradient(90deg, rgba(8,10,15,.08) 1px, transparent 1px), radial-gradient(circle at 40% 42%, rgba(14,124,102,.18), transparent 28%), radial-gradient(circle at 72% 62%, rgba(255,59,47,.16), transparent 22%); background-size: 52px 52px, 52px 52px, auto, auto; animation: grid 12s linear infinite; }
+      @keyframes grid { to { transform: translate(52px,52px); } }
+      .pin { position: absolute; transform: translate(-50%,-50%); display: flex; align-items: center; gap: 10px; color: var(--ink); font-size: 17px; font-weight: 760; }
+      .pin img { width: 58px; height: 58px; object-fit: cover; border-radius: 50%; border: 3px solid var(--ink); animation: pulse 2.4s ease-out infinite; }
+      @keyframes pulse { 70% { box-shadow: 0 0 0 18px rgba(255,255,255,0); } }
+      .panel { padding: 34px; display: flex; flex-direction: column; justify-content: center; }
+      .chip { display: inline-flex; width: fit-content; border: 1px solid currentColor; border-radius: 999px; padding: 8px 12px; font: 800 12px "SF Mono", Menlo, monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--red); }
+      .panel h3 { color: var(--white); margin-top: 22px; font-size: 48px; line-height: .98; }
+      .panel p { color: rgba(255,255,255,.72); margin-top: 20px; font-size: 21px; line-height: 1.35; }
+      .swap { margin-top: 34px; display: grid; grid-template-columns: 1fr 44px 1fr; gap: 14px; align-items: center; }
+      .swap div { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); padding: 18px; } .swap small { display: block; color: rgba(255,255,255,.46); font-size: 13px; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 8px; } .swap strong { font-size: 20px; color: var(--white); } .swap b { color: var(--aqua); font-size: 44px; text-align: center; }
+      .flow { margin-top: 34px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+      .step { background: var(--white); border: 1px solid rgba(8,10,15,.14); min-height: 250px; padding: 22px; }
+      .step small { color: var(--green); font: 800 15px "SF Mono", Menlo, monospace; } .step h3 { color: var(--ink); font-size: 32px; margin-top: 36px; } .step p { color: #56544e; font-size: 20px; line-height: 1.28; margin-top: 16px; }
+      .wowGrid, .qaGrid { margin-top: 46px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+      .wowCard { min-height: 250px; padding: 28px; border: 1px solid rgba(255,255,255,.16); background: linear-gradient(145deg, rgba(255,255,255,.1), rgba(255,255,255,.03)); color: var(--white); }
+      .wowCard b { display: block; color: var(--aqua); font-size: 24px; margin-bottom: 70px; } .wowCard span { display: block; font-size: 30px; line-height: 1.12; font-weight: 730; }
+      .closing { margin-top: 44px; color: transparent; font-size: 52px; font-weight: 820; background: linear-gradient(90deg, var(--aqua), #fff, #ffe37a); -webkit-background-clip: text; }
+      .qaGrid { grid-template-columns: 1fr 1fr; gap: 16px; }
+      .qa { min-height: 180px; background: var(--white); border: 1px solid rgba(8,10,15,.14); padding: 24px; } .qa b { display: block; font-size: 28px; line-height: 1.1; margin-bottom: 18px; } .qa span { color: #55534d; font-size: 21px; line-height: 1.32; }
+      .reveal .controls, .reveal .progress { color: var(--aqua); }
+    </style>
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <section class="hero">
+          <div class="topline"><span>Agent Angelo - AURA</span><span>SwissHacks Pitch · 2-3 min</span></div>
+          <div class="heroGrid">
+            <div>
+              <p class="eyebrow">Adaptive Understanding & Relationship Assistant</p>
+              <h1>Every private banker gets a relationship radar.</h1>
+              <p class="lead">AURA watches the portfolio, understands the person behind it, and prepares the relationship manager for the exact conversation that matters now.</p>
+              <div class="team">
+                <span>Raisa Gulati</span><span>Zaniyar Jahany</span><span>Dean Marti</span><span>Iulian Andrei Birlog</span>
+              </div>
+            </div>
+            <div class="auraCard">
+              <div class="ring r1"><span class="tag">DNA</span></div>
+              <div class="ring r2"><span class="tag">SIX</span></div>
+              <div class="ring r3"><span class="tag">Guardrails</span></div>
+              <div class="core">AURA</div>
+              <div class="faces">
+                <img src="./public/profiles/schneider.png" alt="" />
+                <img src="./public/profiles/huber.png" alt="" />
+                <img src="./public/profiles/raeber.png" alt="" />
+                <img src="./public/profiles/ammann.png" alt="" />
+              </div>
+            </div>
+          </div>
+          <aside class="notes">Opening: We are team Agent Angelo. We built AURA: an adaptive understanding and relationship assistant for private banking. The problem is simple: relationship managers have too much market noise and too little time to translate it into personal, compliant client conversations.</aside>
+        </section>
+
+        <section class="split">
+          <div>
+            <p class="eyebrow darkText">Problem</p>
+            <h2>The RM knows the portfolio. The client expects them to remember the relationship.</h2>
+            <p class="bodyText">News, CIO views, mandate drift, client values, preferences, and past meetings live in different places. The risk is not only missing an investment signal. The bigger risk is calling the client with the wrong message.</p>
+          </div>
+          <div class="metrics">
+            <div class="metric red"><b>17</b><span>tabs before one call</span></div>
+            <div class="metric"><b>1</b><span>wrong framing can break trust</span></div>
+            <div class="metric green"><b>0</b><span>time to rehearse</span></div>
+            <div class="curve">
+              <svg viewBox="0 0 520 190"><path d="M20 132 C100 30, 210 30, 300 116 S450 165, 500 70" /><line x1="48" y1="28" x2="48" y2="164" /><line x1="250" y1="28" x2="250" y2="164" /><line x1="470" y1="28" x2="470" y2="164" /></svg>
+              Catch the relationship signal before attention fades.
+            </div>
+          </div>
+          <aside class="notes">Who has the problem? Relationship managers in private banking. Today market data, CIO recommendations, CRM notes and client preferences are scattered. The real problem is relationship context overload.</aside>
+        </section>
+
+        <section class="dark">
+          <p class="eyebrow">What we built</p>
+          <h2>AURA turns noise into one next best relationship action.</h2>
+          <div class="product">
+            <div class="map">
+              <div class="pin" style="left:18%;top:74%"><img src="./public/profiles/schneider.png" alt="" /><span>Geneva</span></div>
+              <div class="pin" style="left:54%;top:45%"><img src="./public/profiles/huber.png" alt="" /><span>Bern</span></div>
+              <div class="pin" style="left:72%;top:33%"><img src="./public/profiles/raeber.png" alt="" /><span>Zurich</span></div>
+              <div class="pin" style="left:83%;top:63%"><img src="./public/profiles/ammann.png" alt="" /><span>St. Gallen</span></div>
+            </div>
+            <div class="panel">
+              <div class="chip">Values conflict</div>
+              <h3>Holding conflicts with client values</h3>
+              <p>Matched to client DNA: sustainable family legacy, low reputational risk, relationship-led communication.</p>
+              <div class="swap"><div><small>Exit</small><strong>Controversial issuer</strong></div><b>→</b><div><small>Reinvest</small><strong>CIO BUY alternative</strong></div></div>
+            </div>
+          </div>
+          <aside class="notes">What did we build? A dashboard that monitors clients and highlights conflicts or opportunities. For each client, it explains why this matters, which value it touches, what action to consider, and whether it passes guardrails.</aside>
+        </section>
+
+        <section style="background: var(--paper)">
+          <p class="eyebrow darkText">How it works</p>
+          <h2>Deterministic decisions. Generative language. Human final call.</h2>
+          <div class="flow">
+            <div class="step"><small>01</small><h3>Understand</h3><p>CRM notes become client DNA: values, context, preferences, communication style.</p></div>
+            <div class="step"><small>02</small><h3>Detect</h3><p>Portfolio + news + CIO universe surface conflicts and opportunities.</p></div>
+            <div class="step"><small>03</small><h3>Validate</h3><p>Same-sector, mandate drift, concentration, evidence, and DNA-link checks.</p></div>
+            <div class="step"><small>04</small><h3>Prepare</h3><p>Draft outreach and rehearse with a digital twin before the real meeting.</p></div>
+          </div>
+          <aside class="notes">The key is separation. Matching and guardrails are deterministic and auditable. The LLM is used for summarizing, drafting, and role-playing the client. The RM remains in control.</aside>
+        </section>
+
+        <section class="dark">
+          <p class="eyebrow">Why it wins</p>
+          <h2>Not a chatbot. A trust-preserving copilot for the moment before the call.</h2>
+          <div class="wowGrid">
+            <div class="wowCard"><b>For the bank</b><span>Fewer missed signals. Cleaner audit trails. Scalable relationship quality.</span></div>
+            <div class="wowCard"><b>For the RM</b><span>Know what happened, why it matters, and how to say it.</span></div>
+            <div class="wowCard"><b>For the client</b><span>Advice feels personal, timely, and consistent with who they are.</span></div>
+          </div>
+          <div class="closing">AURA makes private banking feel private again.</div>
+          <aside class="notes">Team: Raisa Gulati, Zaniyar Jahany, Dean Marti, Iulian Andrei Birlog. Close with: AURA makes private banking feel private again.</aside>
+        </section>
+
+        <section style="background: var(--paper)">
+          <p class="eyebrow darkText">Q&A prep</p>
+          <h2>Likely questions. Crisp answers.</h2>
+          <div class="qaGrid">
+            <div class="qa"><b>Is this giving financial advice automatically?</b><span>No. AURA prepares the RM. The human owns the final decision and client conversation.</span></div>
+            <div class="qa"><b>How do you prevent hallucinated actions?</b><span>Actions are deterministic: same-sector matching, CIO universe, mandate drift, concentration, evidence, and DNA-link checks.</span></div>
+            <div class="qa"><b>Where does client DNA come from?</b><span>CRM notes and relationship history are summarized into values, context, preferences, and communication style.</span></div>
+            <div class="qa"><b>What makes it different?</b><span>It connects portfolio events to the person: why this client cares, what to do, how to say it, and how they might react.</span></div>
+          </div>
+        </section>
+      </div>
+    </div>
+    <script src="./node_modules/reveal.js/dist/reveal.js"></script>
+    <script src="./node_modules/reveal.js/plugin/notes/notes.js"></script>
+    <script>
+      Reveal.initialize({
+        hash: true,
+        width: 1440,
+        height: 900,
+        margin: 0.035,
+        transition: "slide",
+        backgroundTransition: "fade",
+        controls: true,
+        progress: true,
+        center: false,
+        plugins: [RevealNotes]
+      });
+    </script>
+  </body>
+</html>

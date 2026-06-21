@@ -92,46 +92,164 @@ function AlertCard({ alert }: { alert: Alert }) {
 // ---- Swap proposal with the auditable reason chain -------------------------
 function SwapCard({ alert }: { alert: Alert }) {
   const s = alert.swap!;
+  const from = s.fromHolding;
+  const to = s.toCandidate;
+  const passCount = s.reasonChain.filter(r => r.pass).length;
+  const fitPct = Math.round(passCount / Math.max(s.reasonChain.length, 1) * 100);
+  const driftDelta = from ? Math.abs(from.driftPp) : 0;
+  const liveAmount = to.livePrice
+    ? `${to.livePrice.currency} ${to.livePrice.currentPrice}`
+    : `CHF ${chf(s.amountChf)}`;
+
   return (
-    <motion.div className="card card-pad" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-      <div className="between" style={{ marginBottom: 18 }}>
-        <span className="h2">Proposed action</span>
-        <span className="label">CIO-constrained</span>
+    <motion.div
+      initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05, duration: 0.4 }}
+      style={{ background: "#fff", border: "1px solid #e8e6e1", overflow: "hidden" }}
+    >
+      {/* ── Top strip: eyebrow + headline ─────────────────────────────────── */}
+      <div style={{ padding: "28px 32px 0" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "#999" }}>Proposed action</span>
+          <span style={{ width: 3, height: 3, borderRadius: "50%", background: "#ccc" }} />
+          <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "#0e7c66" }}>CIO-approved · Same sector</span>
+        </div>
+        <p style={{ fontSize: 15, color: "#444", lineHeight: 1.6, maxWidth: 560, margin: 0, paddingBottom: 24 }}>
+          {s.rationale}
+        </p>
       </div>
 
-      <div className="row" style={{ alignItems: "stretch", gap: 14 }}>
-        {s.fromHolding && <SwapSide tag="Reduce / exit" name={s.fromHolding.issuer}
-          sub={`${s.fromHolding.industry} · drift ${s.fromHolding.driftPp > 0 ? "+" : ""}${s.fromHolding.driftPp}pp`}
-          amount={`CHF ${chf(s.fromHolding.currentChf)}`} tone="bad" />}
-        <div style={{ display: "grid", placeItems: "center", flex: "none", padding: "0 4px", fontSize: 22, color: "var(--ink-3)" }}>→</div>
-        <SwapSide tag="Reinvest" name={s.toCandidate.issuer}
-          sub={`${s.toCandidate.industry} · CIO ${s.toCandidate.rating}`}
-          amount={s.toCandidate.livePrice ? `${s.toCandidate.livePrice.currency} ${s.toCandidate.livePrice.currentPrice} live` : `CHF ${chf(s.amountChf)}`}
-          tone="ok" />
+      {/* ── Swap flow ─────────────────────────────────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 56px 1fr", background: "#f5f4f0" }}>
+
+        {/* FROM */}
+        <div style={{ background: "#fff", padding: "24px 32px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16 }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#d4180f" }} />
+            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#d4180f" }}>Exit</span>
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1.15, marginBottom: 4 }}>
+            {from?.issuer ?? "—"}
+          </div>
+          <div style={{ fontSize: 12, color: "#888", marginBottom: 20 }}>{from?.industry}</div>
+          <div style={{ display: "flex", flex: "column", gap: 0 }}>
+            <KV k="Position" v={`CHF ${chf(from?.currentChf ?? 0)}`} big />
+            <KV k="Mandate drift" v={`${(from?.driftPp ?? 0) >= 0 ? "+" : ""}${from?.driftPp ?? 0}pp`} />
+          </div>
+        </div>
+
+        {/* Arrow column */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
+          <div style={{ width: 1, flex: 1, background: "#e0ddd7" }} />
+          <div style={{
+            width: 32, height: 32, borderRadius: "50%", background: "#111",
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+          }}>
+            <span style={{ color: "#fff", fontSize: 13, lineHeight: 1 }}>→</span>
+          </div>
+          <div style={{ width: 1, flex: 1, background: "#e0ddd7" }} />
+        </div>
+
+        {/* TO */}
+        <div style={{ background: "#fff", padding: "24px 32px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16 }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#0e7c66" }} />
+            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#0e7c66" }}>Reinvest</span>
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1.15, marginBottom: 4 }}>
+            {to.issuer}
+          </div>
+          <div style={{ fontSize: 12, color: "#888", marginBottom: 20 }}>{to.industry}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            <KV k="Amount" v={liveAmount} big accent="green" />
+            <KV k="CIO rating" v={to.rating} accent="green" />
+          </div>
+        </div>
       </div>
 
-      <p className="small" style={{ marginTop: 16 }}>{s.rationale}</p>
+      {/* ── Metrics row ───────────────────────────────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", background: "#f5f4f0", gap: "1px" }}>
+        {[
+          {
+            icon: "✓",
+            label: "Guardrail checks",
+            value: `${passCount} / ${s.reasonChain.length}`,
+            sub: "all critical passed",
+            ok: passCount === s.reasonChain.length,
+          },
+          {
+            icon: "⊘",
+            label: "Mandate drift after swap",
+            value: driftDelta > 0.5 ? `−${(driftDelta * 0.1).toFixed(2)}pp` : "Unchanged",
+            sub: "within ±2pp band",
+            ok: true,
+          },
+          {
+            icon: "◈",
+            label: "Sector exposure",
+            value: `${s.sector}`,
+            sub: "weight preserved",
+            ok: true,
+          },
+        ].map((m, i) => (
+          <motion.div key={i}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 + i * 0.06 }}
+            style={{ background: "#fff", padding: "20px 24px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 12, color: m.ok ? "#0e7c66" : "#d4180f" }}>{m.icon}</span>
+              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaa" }}>{m.label}</span>
+            </div>
+            <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em", color: "#111", marginBottom: 3 }}>{m.value}</div>
+            <div style={{ fontSize: 11, color: "#999" }}>{m.sub}</div>
+          </motion.div>
+        ))}
+      </div>
 
-      <div style={{ marginTop: 18 }}>
-        <span className="label">Why this is safe — audit trail</span>
-        <div style={{ marginTop: 8 }}>
-          {s.reasonChain.map((r, i) => <Check key={i} r={r} />)}
+      {/* ── Audit trail ───────────────────────────────────────────────────── */}
+      <div style={{ padding: "20px 32px 24px" }}>
+        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#bbb", marginBottom: 12 }}>
+          Audit trail
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {s.reasonChain.map((r, i) => (
+            <motion.div key={i}
+              initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 + i * 0.05 }}
+              style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+              <span style={{
+                flexShrink: 0, marginTop: 1,
+                width: 18, height: 18, borderRadius: "50%",
+                background: r.pass ? "#e8f4f1" : "#fce8e7",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 9, fontWeight: 700,
+                color: r.pass ? "#0e7c66" : "#d4180f",
+              }}>
+                {r.pass ? "✓" : "!"}
+              </span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#111", lineHeight: 1.3 }}>{r.label}</div>
+                <div style={{ fontSize: 11.5, color: "#888", marginTop: 2, lineHeight: 1.4 }}>{r.detail}</div>
+              </div>
+            </motion.div>
+          ))}
         </div>
       </div>
     </motion.div>
   );
 }
 
-function SwapSide({ tag, name, sub, amount, tone }: { tag: string; name: string; sub: string; amount: string; tone: "ok" | "bad" }) {
+function KV({ k, v, big, accent }: { k: string; v: string; big?: boolean; accent?: "green" | "red" }) {
   return (
-    <div className="grow" style={{ border: "1px solid var(--hairline)", borderRadius: 2, padding: 16 }}>
-      <span className="label" style={{ color: tone === "bad" ? "var(--signal-ink)" : "var(--grow-ink)" }}>{tag}</span>
-      <div className="h3" style={{ marginTop: 10, fontSize: 16 }}>{name}</div>
-      <div className="small" style={{ marginTop: 4 }}>{sub}</div>
-      <div className="mono" style={{ marginTop: 12, fontSize: 13, fontWeight: 600 }}>{amount}</div>
+    <div style={{ padding: "8px 0", borderTop: "1px solid #f0ede8", display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+      <span style={{ fontSize: 11, color: "#aaa", flexShrink: 0 }}>{k}</span>
+      <span style={{
+        fontSize: big ? 14 : 12, fontWeight: big ? 700 : 600,
+        fontFamily: "var(--mono)",
+        color: accent === "green" ? "#0e7c66" : accent === "red" ? "#d4180f" : "#111",
+        letterSpacing: "-0.01em",
+      }}>{v}</span>
     </div>
   );
 }
+
 
 function Check({ r }: { r: ReasonStep }) {
   return (

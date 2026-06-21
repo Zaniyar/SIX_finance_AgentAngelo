@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Link, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import TopBar from "../components/TopBar";
-import TwinScene from "../three/TwinScene";
+import TwinScene, { xrStore } from "../three/TwinScene";
 import { WebSpeechDriver, AudioFileDriver } from "../three/lipsync";
 import { api, ClientSummary, ClientDetail } from "../api";
 
@@ -26,9 +26,19 @@ export default function TwinChat() {
   const [speaking, setSpeaking] = useState(false);
   const [testPlaying, setTestPlaying] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [arSupported, setArSupported] = useState(false);
   const driver = useRef(new WebSpeechDriver());
   const audioDriver = useRef(new AudioFileDriver());
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Detect WebXR AR support (needs HTTPS)
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && "xr" in navigator) {
+      (navigator as any).xr?.isSessionSupported("immersive-ar")
+        .then((supported: boolean) => setArSupported(supported))
+        .catch(() => setArSupported(false));
+    }
+  }, []);
 
   useEffect(() => { api.clients().then((cs) => setClient(cs.find((c) => c.id === id) || null)); }, [id]);
   useEffect(() => { api.client(id).then(setDetail).catch(() => {}); }, [id]);
@@ -77,7 +87,25 @@ export default function TwinChat() {
             <div className="h1" style={{ marginTop: 6 }}>{client?.displayName || id}</div>
           </div>
 
-          <div style={{ position: "absolute", top: 24, right: 24 }}>
+          <div style={{ position: "absolute", top: 24, right: 24, display: "flex", gap: 8, alignItems: "center" }}>
+            {arSupported && (
+              <motion.button
+                whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.96 }}
+                onClick={() => xrStore.enterAR()}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "6px 12px",
+                  background: "rgba(56,189,248,0.12)",
+                  border: "1px solid rgba(56,189,248,0.45)",
+                  color: "#38bdf8",
+                  cursor: "pointer", fontSize: 11,
+                  fontFamily: "var(--mono)", letterSpacing: "0.08em",
+                  textTransform: "uppercase", fontWeight: 700,
+                }}
+              >
+                <span style={{ fontSize: 13 }}>◎</span> AR
+              </motion.button>
+            )}
             <span className="chip" style={{ background: "rgba(255,255,255,0.06)", borderColor: "var(--void-line)", color: "var(--void-ink)" }}>
               <span className={`dot ${speaking ? "ok" : busy ? "warn" : ""}`} /> {status}
             </span>
