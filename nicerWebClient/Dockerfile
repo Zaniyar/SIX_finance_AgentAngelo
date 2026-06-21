@@ -3,8 +3,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
-# Build for production (no HTTPS plugin needed — nginx handles TLS)
+# VITE_API_BASE must be set at build time — import.meta.env is resolved by Vite
 ENV NODE_ENV=production
+ENV VITE_API_BASE=https://agentangelo.finance
 RUN npm run build
 
 FROM node:20-alpine
