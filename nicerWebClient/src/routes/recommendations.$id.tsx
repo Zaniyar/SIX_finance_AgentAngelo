@@ -2107,33 +2107,9 @@ function Section({
   widgetHidden?: boolean;
   onVisibilityToggle?: () => void;
 }) {
-  const board = useBentoBoard();
-
-  useLayoutEffect(() => {
-    if (!id || !board) return;
-    board.register(id, { title, subtitle, icon, accent, content: children });
-    return () => board.unregister(id);
-  }, [id, title, subtitle, icon, accent, children, board]);
-
-  if (id && board && bento) {
-    return (
-      <BentoTile
-        title={title}
-        subtitle={subtitle}
-        icon={icon}
-        accent={accent}
-        bento={bento}
-        active={!editMode && board.openId === id}
-        onSelect={() => board.toggle(id)}
-        editMode={editMode}
-        widgetHidden={widgetHidden}
-        onEditToggle={onVisibilityToggle}
-      />
-    );
-  }
-
+  // Always render as CollapsibleCard open by default — no BentoTile thumbnails
   return (
-    <CollapsibleCard title={title} subtitle={subtitle} icon={icon} defaultOpen={defaultOpen ?? true} bento={bento} accent={accent}>
+    <CollapsibleCard title={title} subtitle={subtitle} icon={icon} defaultOpen={true} bento={bento} accent={accent}>
       {children}
     </CollapsibleCard>
   );
