@@ -3,7 +3,9 @@ import { createServer } from "http";
 import { createReadStream } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import handler from "./dist/server/server.js";
+import * as handlerModule from "./dist/server/server.js";
+// CJS default export compat: the built file uses module.exports.default
+const handler = handlerModule.default ?? handlerModule;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT ?? "3030", 10);
@@ -32,7 +34,9 @@ const server = createServer(async (req, res) => {
       body: body?.length ? body : undefined,
     });
 
-    const response = await handler.default.fetch(request, {}, {});
+    const fetchFn = handler.fetch ?? handler.default?.fetch;
+    if (!fetchFn) throw new Error("No fetch handler found in server.js");
+    const response = await fetchFn.call(handler, request, {}, {});
 
     res.writeHead(response.status, Object.fromEntries(response.headers.entries()));
 
