@@ -393,7 +393,7 @@ router.post("/copilot-chat", async (req: Request, res: Response) => {
   const citationSuffix = buildCitationSystemPrompt(activeSources);
 
   const system =
-    `You are the Relationship Intelligence Copilot for Sarah Meier, a Relationship Manager at a Swiss private bank.\n` +
+    `You are the Relationship Intelligence Copilot for Michael Berger, a Relationship Manager at a Swiss private bank.\n` +
     `You help her reason across her entire book of clients. You have full visibility on portfolios, client DNA, open recommendations, and live market events.\n\n` +
     `When the RM mentions a company, ticker, fraud event, macro event or theme:\n` +
     `- Identify which of her clients are exposed (use the provided data, not assumptions).\n` +
@@ -525,7 +525,7 @@ router.post("/recommendation-chat", async (req: Request, res: Response) => {
 
   const styleBlock = isSelectionAsk
     ? `## Response style (mandatory for this message)\n` +
-      `- **Maximum 4 short sentences (~80 words).** Write like you're whispering a tip to Sarah at the desk, not drafting a report.\n` +
+      `- **Maximum 4 short sentences (~80 words).** Write like you're whispering a tip to Michael at the desk, not drafting a report.\n` +
       `- No markdown tables, no ## headers, no numbered checklists, no "Point | Why it matters" layouts.\n` +
       `- One clear takeaway + one concrete next step. That's it.\n` +
       `- Warm and direct — use the client's first name once if natural.\n\n`
@@ -535,7 +535,7 @@ router.post("/recommendation-chat", async (req: Request, res: Response) => {
       `- No tables. At most 3 short bullets if truly needed. Skip ## section headers for simple questions.\n\n`;
 
   const system =
-    `You are the Client Context Assistant for Sarah Meier, a Relationship Manager at a Swiss private bank.\n` +
+    `You are the Client Context Assistant for Michael Berger, a Relationship Manager at a Swiss private bank.\n` +
     `You are embedded on a single client's page (active tab: ${activeTab}). Answer ONLY about this client and the data in the provided context.\n` +
     `The RM may highlight text and ask via "Ask AI" (messages tagged [Ask AI · selection]) — answer ONLY about that quoted text.\n\n` +
     styleBlock +

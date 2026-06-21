@@ -1678,9 +1678,11 @@ function useBentoWidgetVisibility<T extends string>(storageKey: string) {
     onVisibilityToggle: () => toggleWidgetVisibility(key),
   });
 
-  const showWidget = (key: T) => editingWidgets || isWidgetVisible(key);
+  // Always show all widgets open — user can collapse individually via CollapsibleCard
+  const showWidget = (_key: T) => true;
+  const widgetTilePropsOpen = (_key: T) => ({});
 
-  return { hiddenWidgets, editingWidgets, setEditingWidgets, widgetTileProps, showWidget };
+  return { hiddenWidgets, editingWidgets, setEditingWidgets, widgetTileProps: widgetTilePropsOpen, showWidget };
 }
 
 function WidgetCustomizeHeader({
