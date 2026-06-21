@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { Menu, X } from "lucide-react";
 import { api, ClientSummary, HighlightGroup } from "@/lib/api";
 import { AngeloCallButton } from "@/components/AngeloCallButton";
 import { clients as mockClients } from "@/lib/mock-data";
@@ -107,6 +108,7 @@ const LIGHT_MAP_STYLE = {
 
 const CARD_W = 340;
 const CARD_OFFSET_Y = 16;
+const SIDEBAR_W = 380;
 
 function initials(name: string) {
   return name.split(/[\s&]+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? "").join("");
@@ -116,6 +118,7 @@ function WorldMap() {
   const [realClients, setRealClients] = useState<ClientSummary[]>([]);
   const [allClients, setAllClients] = useState<MapClient[]>([]);
   const [active, setActive] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [markerPx, setMarkerPx] = useState<{ x: number; y: number } | null>(null);
   const nav = useNavigate();
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -377,7 +380,27 @@ function WorldMap() {
             ))}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <button
+            type="button"
+            onClick={() => setSidebarOpen((open) => !open)}
+            aria-label={sidebarOpen ? "Client queue schließen" : "Client queue öffnen"}
+            aria-expanded={sidebarOpen}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 34,
+              height: 34,
+              border: `1px solid ${T.black}`,
+              background: sidebarOpen ? T.black : T.white,
+              color: sidebarOpen ? T.white : T.black,
+              cursor: "pointer",
+              transition: `background 0.2s ${T.ease}, color 0.2s ${T.ease}`,
+            }}
+          >
+            {sidebarOpen ? <X size={16} strokeWidth={2.2} /> : <Menu size={16} strokeWidth={2.2} />}
+          </button>
           <LiveBadge />
         </div>
       </header>
@@ -408,11 +431,9 @@ function WorldMap() {
         </motion.div>
       </div>
 
-      {/* Main grid */}
-      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1px 380px", minHeight: 0 }}>
-
-        {/* MAP */}
-        <div style={{ position: "relative", overflow: "hidden" }}>
+      {/* Main area — map full width, sidebar slides in from right */}
+      <div style={{ flex: 1, position: "relative", minHeight: 0, overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0 }}>
           <div ref={mapEl} style={{ width: "100%", height: "100%" }} />
 
           <AnimatePresence>
@@ -444,11 +465,25 @@ function WorldMap() {
           <div style={{ position: "absolute", bottom: 6, right: 8, fontSize: 9, color: T.grayLight, zIndex: 10 }}>© CartoDB</div>
         </div>
 
-        {/* Divider */}
-        <div style={{ background: T.black }} />
-
-        {/* Right panel */}
-        <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", background: T.white }}>
+        <motion.aside
+          initial={false}
+          animate={{ x: sidebarOpen ? 0 : SIDEBAR_W + 1 }}
+          transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+          style={{
+            position: "absolute",
+            top: 0,
+            right: 0,
+            bottom: 0,
+            width: SIDEBAR_W,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            background: T.white,
+            borderLeft: `1px solid ${T.black}`,
+            zIndex: 15,
+            boxShadow: sidebarOpen ? "-10px 0 28px rgba(0,0,0,0.08)" : "none",
+          }}
+        >
           <div style={{ display: "flex", borderBottom: `1px solid ${T.black}`, flexShrink: 0 }}>
             <KPICell value={conflicts} label="Action Required" accent={T.red} />
             <div style={{ width: 1, background: T.black }} />
@@ -483,7 +518,7 @@ function WorldMap() {
             <IntegDot label="Phoeniqs" ok={false} />
             <IntegDot label="News" ok={false} />
           </div>
-        </div>
+        </motion.aside>
       </div>
 
       <style>{`
@@ -608,7 +643,10 @@ function ClientMapCard({ client: c, onOpen, onTwin }: { client: MapClient; onOpe
             transition={{ duration: 0.12 }}
             style={{ width: 34, height: 34, flexShrink: 0, background: T.white, color: T.black, border: `1px solid ${T.black}`, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}
             title="Open digital twin">
-            ◢
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="8" r="4"/>
+              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+            </svg>
           </motion.button>
         )}
       </div>

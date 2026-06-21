@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { ContactShadows, OrbitControls, useProgress } from "@react-three/drei";
+import { ContactShadows, Html, OrbitControls, useProgress } from "@react-three/drei";
 import { XR, createXRStore, IfInSessionMode, useXR } from "@react-three/xr";
 import * as THREE from "three";
 import Avatar from "./Avatar";
@@ -48,6 +48,7 @@ function SceneContent(props: TwinSceneProps) {
 
   return (
     <>
+      <LoadingBar />
       <ArBackground />
       <ambientLight intensity={0.7} />
       <directionalLight position={[2, 3, 2]} intensity={1.1} />
@@ -80,28 +81,35 @@ function SceneContent(props: TwinSceneProps) {
   );
 }
 
-function LoadingOverlay() {
+// Runs inside Canvas so useProgress has Suspense context
+function LoadingBar() {
   const { progress, active } = useProgress();
-  if (!active) return null;
+  const [visible, setVisible] = useState(active);
+
+  useEffect(() => {
+    if (active) { setVisible(true); return; }
+    // Fade out 600ms after loading completes
+    const t = setTimeout(() => setVisible(false), 600);
+    return () => clearTimeout(t);
+  }, [active]);
+
+  if (!visible) return null;
   return (
-    <div style={{
-      position: "absolute", inset: 0, display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center", pointerEvents: "none",
-    }}>
-      <div style={{ width: 160, marginBottom: 10 }}>
-        <div style={{
-          height: 2, background: "rgba(255,255,255,0.12)", borderRadius: 2, overflow: "hidden",
-        }}>
+    <Html center style={{ pointerEvents: "none", width: 180 }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+        <div style={{ width: 160, height: 2, background: "rgba(255,255,255,0.1)", borderRadius: 2, overflow: "hidden" }}>
           <div style={{
-            height: "100%", width: `${progress}%`, background: "rgba(255,255,255,0.55)",
-            borderRadius: 2, transition: "width 0.2s ease",
+            height: "100%", width: `${progress}%`,
+            background: "rgba(255,255,255,0.5)",
+            borderRadius: 2,
+            transition: "width 0.15s ease",
           }} />
         </div>
+        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "monospace", letterSpacing: "0.1em" }}>
+          {Math.round(progress)}%
+        </span>
       </div>
-      <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", fontFamily: "var(--mono, monospace)", letterSpacing: "0.08em" }}>
-        {Math.round(progress)}%
-      </span>
-    </div>
+    </Html>
   );
 }
 
@@ -157,7 +165,6 @@ export default function TwinScene(props: TwinSceneProps) {
   return (
     <>
       <CanvasStage {...props} canvasKey={canvasKey} />
-      <LoadingOverlay />
       {/* Hide the default @react-three/xr "Enter XR" button injected into the DOM */}
       <style>{`.xr-button { display: none !important; }`}</style>
     </>
