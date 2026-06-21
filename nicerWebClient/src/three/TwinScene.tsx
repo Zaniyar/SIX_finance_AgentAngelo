@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { ContactShadows, Html, OrbitControls, useProgress } from "@react-three/drei";
+import { ContactShadows, Environment, Html, OrbitControls, useProgress } from "@react-three/drei";
 import { XR, createXRStore, IfInSessionMode, useXR } from "@react-three/xr";
 import * as THREE from "three";
 import Avatar from "./Avatar";
@@ -50,19 +50,32 @@ function SceneContent(props: TwinSceneProps) {
     <>
       <LoadingBar />
       <ArBackground />
-      <ambientLight intensity={0.7} />
-      <directionalLight position={[2, 3, 2]} intensity={1.1} />
-      <directionalLight position={[-3, 1, -2]} intensity={0.4} color="#6a78ff" />
+
+      {/* Key light — warm, slightly from above-left like a studio softbox */}
+      <directionalLight position={[-1.5, 4, 3]} intensity={1.6} color="#fff5e8" castShadow />
+      {/* Fill light — cool blue from the right, softens shadows */}
+      <directionalLight position={[3, 2, -1]} intensity={0.55} color="#c8d8ff" />
+      {/* Back rim light — separates avatar from dark background */}
+      <directionalLight position={[0, 3, -4]} intensity={0.9} color="#a0b8ff" />
+      {/* Ambient — very subtle so shadows stay readable */}
+      <ambientLight intensity={0.18} color="#e8eeff" />
+      {/* Face fill — close, soft, brightens up on speech */}
       <pointLight
-        position={[0, 0.4, 1.6]}
-        intensity={props.speaking ? 1.2 : 0.3}
-        color="#ffffff"
+        position={[0, 0.6, 1.8]}
+        intensity={props.speaking ? 1.4 : 0.5}
+        color="#fff8f0"
+        distance={4}
+        decay={2}
       />
+      {/* Subtle upward bounce off imaginary floor */}
+      <pointLight position={[0, -1.2, 1.0]} intensity={0.15} color="#dde8ff" distance={3} decay={2} />
+      {/* IBL environment — city preset gives sharp reflections on skin + fabric */}
+      <Environment preset="city" environmentIntensity={0.4} backgroundBlurriness={1} />
 
       <IfInSessionMode deny="immersive-ar">
         {/* Desktop / flat view */}
         <Avatar driver={props.driver} url={props.avatarUrl || ""} speaking={props.speaking} />
-        <ContactShadows position={[0, -0.95, 0]} opacity={0.35} scale={5} blur={2} far={2.5} />
+        <ContactShadows position={[0, -0.95, 0]} opacity={0.55} scale={4} blur={2.5} far={2} color="#0a0a18" />
         <OrbitControls
           enablePan={false}
           enableZoom={false}
