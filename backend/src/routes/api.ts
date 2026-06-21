@@ -458,16 +458,21 @@ router.post("/copilot-chat", async (req: Request, res: Response) => {
 // ── POST /api/recommendation-chat ─────────────────────────────────────────────
 // Context-aware chat for a single client recommendation page (nicerWebClient).
 router.post("/recommendation-chat", async (req: Request, res: Response) => {
-  const { messages, context } = req.body as { messages?: ChatMessage[]; context?: string };
+  const { messages, context } = req.body as { messages?: ChatMessage[]; context?: string | Record<string, unknown> };
   if (!Array.isArray(messages)) return fail(res, new Error("messages[] required"), 400);
   if (!context) return fail(res, new Error("context required"), 400);
   if (!phoeniqs.configured) return fail(res, new Error("Phoeniqs not configured — set PHOENIQS_API_KEY"), 503);
 
+  // context may arrive as a JSON string (from proxy) or already parsed object (direct fetch)
   let parsed: Record<string, unknown>;
-  try {
-    parsed = JSON.parse(context) as Record<string, unknown>;
-  } catch {
-    return fail(res, new Error("context must be valid JSON"), 400);
+  if (typeof context === "object" && context !== null) {
+    parsed = context as Record<string, unknown>;
+  } else {
+    try {
+      parsed = JSON.parse(context as string) as Record<string, unknown>;
+    } catch {
+      return fail(res, new Error("context must be valid JSON"), 400);
+    }
   }
 
   const client = parsed.client as {
