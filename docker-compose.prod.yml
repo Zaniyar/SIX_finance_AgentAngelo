@@ -24,5 +24,6 @@ services:
       - NODE_ENV=production
       - PORT=3030
       - VITE_API_BASE=https://agentangelo.finance
+      - BACKEND_URL=http://agentangelo-backend:3031
     depends_on:
       - backend
