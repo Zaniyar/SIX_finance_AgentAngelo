@@ -1,0 +1,85 @@
+flowchart TB
+  subgraph SRC["Signal sources"]
+    direction LR
+    CRM["CRM logs"]
+    PMS["Custody / PMS positions"]
+    NEWS["Market and news feeds"]
+    CIO["CIO content: house view, model portfolios, lists"]
+    COMMS["Comms history: style, language, channel"]
+  end
+
+  ING["Ingestion: normalise and entity-resolve"]
+  DNA[("Client DNA store<br/>jurisdiction · investor class · risk profile<br/>knowledge/experience · objectives<br/>financial situation · holdings")]
+  SRC --> ING --> DNA
+
+  subgraph AG["Specialist agents"]
+    direction LR
+    A1["CRM Agent<br/>maintains Client DNA"]
+    A2["Portfolio Agent<br/>drift vs CIO model and lists"]
+    A3["News Agent<br/>event-to-holding matching"]
+  end
+  DNA --> A1
+  DNA --> A2
+  DNA --> A3
+
+  ORC["Orchestrator<br/>correlate · score alert-worthiness · de-dupe"]
+  A1 -- signal --> ORC
+  A2 -- signal --> ORC
+  A3 -- signal --> ORC
+
+  AUD[("Append-only audit trail<br/>model + prompt + sources + policy verdict")]
+
+  OPA{{"OPA / Rego policy gate — PDP<br/>allow · deny · flag, with reasons"}}
+  POL["Policy domains in Rego:<br/>concentration limits<br/>restricted / sanctioned sectors<br/>suitability + appropriateness, FIDLEG / MiFID II<br/>investor class: retail vs professional / qualified<br/>jurisdiction and cross-border rules"]
+  ORC -- "query: profile + proposal + portfolio" --> OPA
+  POL -.-> OPA
+
+  MSG["Message Agent<br/>personalised narrative<br/>required disclosures + citations"]
+  OPA -- "allow + disclosures" --> MSG
+  OPA -- "deny / suppress" --> AUD
+  MSG -- "validate disclosures" --> OPA
+
+  subgraph DEL["Delivery surface"]
+    direction LR
+    DASH["RM Dashboard<br/>prioritised worklist"]
+    RMI["RM Interface Agent<br/>conversational · explainable"]
+  end
+  MSG --> DASH
+  DASH <--> RMI
+
+  RM["Relationship Manager<br/>reviews · adapts · presents"]
+  CLIENT["Client — always decides"]
+  DASH --> RM
+  RMI -.-> RM
+  RM --> CLIENT
+  RM -- outcome --> AUD
+
+  subgraph GOV["Platform and governance — Azure, Switzerland North"]
+    direction LR
+    IDP["Entra ID · RBAC scoped to RM book"]
+    KV["Key Vault · customer-managed keys"]
+    EVAL["Foundry eval + tracing"]
+    CS["Content Safety guardrails"]
+    RES["Data residency · DPIA"]
+  end
+  GOV -.-> ORC
+
+  classDef src fill:#EAF2FB,stroke:#9FB6D4,color:#0A1A33;
+  classDef agent fill:#0A1A33,stroke:#15C399,color:#FFFFFF;
+  classDef orch fill:#0D1F3A,stroke:#F5821F,color:#FFFFFF;
+  classDef policy fill:#FBE9D8,stroke:#C0392B,color:#7A2012;
+  classDef msg fill:#13294A,stroke:#F5821F,color:#FFFFFF;
+  classDef deliver fill:#EFEAFB,stroke:#8B7BE8,color:#2A2150;
+  classDef human fill:#E7F7F1,stroke:#0E8E70,color:#0A3D2E;
+  classDef store fill:#0C2138,stroke:#15C399,color:#FFFFFF;
+  classDef gov fill:#F4F7FB,stroke:#AEBDD3,color:#0A1A33;
+
+  class CRM,PMS,NEWS,CIO,COMMS,ING src;
+  class A1,A2,A3 agent;
+  class ORC orch;
+  class OPA,POL policy;
+  class MSG msg;
+  class DASH,RMI deliver;
+  class RM,CLIENT human;
+  class DNA,AUD store;
+  class IDP,KV,EVAL,CS,RES gov;

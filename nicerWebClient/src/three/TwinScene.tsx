@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { ContactShadows, Environment, Html, OrbitControls, useProgress } from "@react-three/drei";
+import { ContactShadows, Html, OrbitControls, useProgress } from "@react-three/drei";
 import { XR, createXRStore, IfInSessionMode, useXR } from "@react-three/xr";
 import * as THREE from "three";
 import Avatar from "./Avatar";
@@ -44,38 +44,38 @@ function ArAvatarGroup({ driver, speaking, avatarUrl }: TwinSceneProps) {
 }
 
 function SceneContent(props: TwinSceneProps) {
-  const inAr = useXR((s) => s.session !== null && s.mode === "immersive-ar");
+  const speaking = props.speaking;
 
   return (
     <>
       <LoadingBar />
       <ArBackground />
 
-      {/* Key light — warm, slightly from above-left like a studio softbox */}
-      <directionalLight position={[-1.5, 4, 3]} intensity={1.6} color="#fff5e8" castShadow />
-      {/* Fill light — cool blue from the right, softens shadows */}
-      <directionalLight position={[3, 2, -1]} intensity={0.55} color="#c8d8ff" />
-      {/* Back rim light — separates avatar from dark background */}
-      <directionalLight position={[0, 3, -4]} intensity={0.9} color="#a0b8ff" />
-      {/* Ambient — very subtle so shadows stay readable */}
-      <ambientLight intensity={0.18} color="#e8eeff" />
-      {/* Face fill — close, soft, brightens up on speech */}
+      {/* Soft sky/ground fill — keeps PBR skin readable without HDR environment maps */}
+      <hemisphereLight color="#f4f6ff" groundColor="#2a3148" intensity={0.85} />
+      <ambientLight intensity={0.42} color="#eef1ff" />
+
+      {/* Key — warm front-left, main portrait light */}
+      <directionalLight position={[-1.8, 3.8, 2.8]} intensity={1.85} color="#fff4e8" />
+      {/* Fill — cool right side, opens shadows on the face */}
+      <directionalLight position={[3.2, 1.8, 1.2]} intensity={0.95} color="#d4e2ff" />
+      {/* Rim — separates shoulders/hair from the dark stage background */}
+      <directionalLight position={[0.4, 2.8, -3.6]} intensity={1.15} color="#b8c8ff" />
+      {/* Face key — always on, lifts eyes/mouth; brighter while speaking */}
       <pointLight
-        position={[0, 0.6, 1.8]}
-        intensity={props.speaking ? 1.4 : 0.5}
-        color="#fff8f0"
-        distance={4}
+        position={[0, 0.55, 1.85]}
+        intensity={speaking ? 2.2 : 1.35}
+        color="#fffaf5"
+        distance={5.5}
         decay={2}
       />
-      {/* Subtle upward bounce off imaginary floor */}
-      <pointLight position={[0, -1.2, 1.0]} intensity={0.15} color="#dde8ff" distance={3} decay={2} />
-      {/* IBL environment — city preset gives sharp reflections on skin + fabric */}
-      <Environment preset="city" environmentIntensity={0.4} backgroundBlurriness={1} />
+      {/* Gentle bounce from below — reduces muddy chin/neck shadows */}
+      <pointLight position={[0, -0.8, 1.2]} intensity={0.35} color="#c8d4ff" distance={4} decay={2} />
 
       <IfInSessionMode deny="immersive-ar">
         {/* Desktop / flat view */}
-        <Avatar driver={props.driver} url={props.avatarUrl || ""} speaking={props.speaking} />
-        <ContactShadows position={[0, -0.95, 0]} opacity={0.55} scale={4} blur={2.5} far={2} color="#0a0a18" />
+        <Avatar driver={props.driver} url={props.avatarUrl || ""} speaking={speaking} />
+        <ContactShadows position={[0, -0.95, 0]} opacity={0.42} scale={4.5} blur={2.2} far={2.2} color="#050508" />
         <OrbitControls
           enablePan={false}
           enableZoom={false}
@@ -140,6 +140,10 @@ function CanvasStage(props: TwinSceneProps & { canvasKey: number }) {
       }}
       style={{ width: "100%", height: "100%", background: "transparent" }}
       onCreated={({ gl }) => {
+        gl.toneMapping = THREE.ACESFilmicToneMapping;
+        gl.toneMappingExposure = 1.22;
+        gl.outputColorSpace = THREE.SRGBColorSpace;
+
         const canvas = gl.domElement;
         const onLost = (event: Event) => {
           event.preventDefault();

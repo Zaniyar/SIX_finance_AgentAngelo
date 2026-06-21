@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Menu, X } from "lucide-react";
+import { AppShell } from "@/components/app-shell";
+import { cn } from "@/lib/utils";
 import { api, ClientSummary, HighlightGroup } from "@/lib/api";
 import { AngeloCallButton } from "@/components/AngeloCallButton";
 import { clients as mockClients } from "@/lib/mock-data";
@@ -161,7 +163,9 @@ function WorldMap() {
       }));
 
       const realBackendIds = new Set(cs.map(c => c.id));
-      const mockOnly = mockClients.filter(m => !realBackendIds.has(m.id.replace("c-", "")));
+      const mockOnly = mockClients.filter(
+        (m) => !realBackendIds.has(m.id) && !realBackendIds.has(m.id.replace(/^c-/, "")),
+      );
       const mockMap: MapClient[] = mockOnly.map(m => ({
         id: m.id,
         name: m.name,
@@ -361,78 +365,26 @@ function WorldMap() {
   const activeClient = allClients.find(c => c.id === active);
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", background: T.white, color: T.black }}>
-
-      {/* Topbar */}
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 40px", height: 52, borderBottom: `1px solid ${T.black}`, flexShrink: 0, background: T.white, zIndex: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, letterSpacing: "-0.02em" }}>
-            Agent<span style={{ fontWeight: 300 }}>Angelo</span>
-          </div>
-          <div style={{ display: "flex", gap: 28 }}>
-            {(["Dashboard", "Map", "Clients", "Copilot"] as const).map((item, i) => (
-              <span key={item}
-                onClick={() => { if (item === "Dashboard") nav({ to: "/" }); else if (item === "Clients") nav({ to: "/clients" }); else if (item === "Copilot") nav({ to: "/copilot" }); }}
-                style={{ fontSize: 11, fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", color: item === "Map" ? T.black : T.grayLight, cursor: "pointer" }}
-              >
-                {item}
-              </span>
-            ))}
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <button
-            type="button"
-            onClick={() => setSidebarOpen((open) => !open)}
-            aria-label={sidebarOpen ? "Client queue schließen" : "Client queue öffnen"}
-            aria-expanded={sidebarOpen}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 34,
-              height: 34,
-              border: `1px solid ${T.black}`,
-              background: sidebarOpen ? T.black : T.white,
-              color: sidebarOpen ? T.white : T.black,
-              cursor: "pointer",
-              transition: `background 0.2s ${T.ease}, color 0.2s ${T.ease}`,
-            }}
-          >
-            {sidebarOpen ? <X size={16} strokeWidth={2.2} /> : <Menu size={16} strokeWidth={2.2} />}
-          </button>
-          <LiveBadge />
-        </div>
-      </header>
-
-      {/* Ticker */}
-      <div style={{ overflow: "hidden", borderBottom: `1px solid ${T.black}`, flexShrink: 0, background: T.black }}>
-        <motion.div
-          animate={{ x: ["0%", "-50%"] }}
-          transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
-          style={{ display: "flex", whiteSpace: "nowrap" }}
-        >
-          {[...Array(2)].map((_, rep) => (
-            <div key={rep} style={{ display: "flex" }}>
-              {[
-                { label: "Action Required", val: String(conflicts) },
-                { label: "Opportunities", val: String(opps) },
-                { label: "Clients Monitored", val: String(allClients.length) },
-                { label: "SIX MCP", val: "LIVE" },
-                { label: "Mandate Types", val: "Defensive · Balanced · Growth" },
-                { label: "Audit Trail", val: "Deterministic · No Hallucinations" },
-              ].map(({ label, val }) => (
-                <span key={label} style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", padding: "9px 40px", color: "#888", flexShrink: 0 }}>
-                  {label} · <span style={{ color: "white" }}>{val}</span>
-                </span>
-              ))}
-            </div>
-          ))}
-        </motion.div>
-      </div>
-
+    <AppShell fullBleed>
+      <div
+        className="relative flex h-full flex-col overflow-hidden"
+        style={{ fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif", background: T.white, color: T.black }}
+      >
       {/* Main area — map full width, sidebar slides in from right */}
       <div style={{ flex: 1, position: "relative", minHeight: 0, overflow: "hidden" }}>
+        <button
+          type="button"
+          onClick={() => setSidebarOpen((open) => !open)}
+          aria-label={sidebarOpen ? "Client queue schließen" : "Client queue öffnen"}
+          aria-expanded={sidebarOpen}
+          className={cn(
+            "absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background/95 text-foreground shadow-sm backdrop-blur transition hover:bg-secondary",
+            sidebarOpen && "border-foreground bg-foreground text-background",
+          )}
+        >
+          {sidebarOpen ? <X size={16} strokeWidth={2.2} /> : <Menu size={16} strokeWidth={2.2} />}
+        </button>
+
         <div style={{ position: "absolute", inset: 0 }}>
           <div ref={mapEl} style={{ width: "100%", height: "100%" }} />
 
@@ -540,7 +492,8 @@ function WorldMap() {
         ::-webkit-scrollbar-track { background: #f7f7f7; }
         ::-webkit-scrollbar-thumb { background: #111111; }
       `}</style>
-    </div>
+      </div>
+    </AppShell>
   );
 }
 
@@ -738,21 +691,6 @@ function KPICell({ value, label, accent }: { value: number; label: string; accen
     </div>
   );
 }
-
-function LiveBadge() {
-  const [time, setTime] = useState(new Date().toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" }));
-  useEffect(() => {
-    const t = setInterval(() => setTime(new Date().toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })), 10000);
-    return () => clearInterval(t);
-  }, []);
-  return (
-    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-      <motion.div animate={{ opacity: [1, 0.2, 1] }} transition={{ duration: 2, repeat: Infinity }} style={{ width: 6, height: 6, background: T.green }} />
-      <span style={{ fontSize: 10, color: T.grayLight, letterSpacing: "0.1em", fontFamily: "monospace" }}>{time} · LIVE</span>
-    </div>
-  );
-}
-
 function IntegDot({ label, ok }: { label: string; ok: boolean }) {
   return (
     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>

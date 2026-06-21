@@ -589,14 +589,39 @@ import { triggerCall, getLastCall, getCallById, getAudioPath } from "../services
 
 // POST /api/calls/trigger — manual trigger from dashboard
 router.post("/calls/trigger", async (req: Request, res: Response) => {
-  const { client_id, alert_id } = req.body as { client_id?: string; alert_id?: string };
+  let { client_id, alert_id } = req.body as { client_id?: string; alert_id?: string };
   if (!client_id) return fail(res, new Error("client_id required"), 400);
+
+  // "all" → pick the highest-priority client automatically
+  if (client_id === "all") {
+    try {
+      const { buildAlerts } = await import("../advisory/alerts");
+      const { buildDna } = await import("../advisory/dna");
+      const { computeClientScores } = await import("../advisory/scoring");
+      let bestId = "schneider";
+      let bestScore = -1;
+      for (const c of getClients()) {
+        try {
+          const holdings = getPortfolio(c.portfolio);
+          const dna = await buildDna(c.id, phoeniqs);
+          const { alerts } = buildAlerts(c, dna);
+          if (!alerts.length) continue;
+          const pv = holdings.reduce((s, h) => s + h.currentChf, 0);
+          const scores = computeClientScores(dna, holdings, alerts[0], pv);
+          if (scores.alert_priority_score > bestScore) {
+            bestScore = scores.alert_priority_score;
+            bestId = c.id;
+          }
+        } catch { /* skip */ }
+      }
+      client_id = bestId;
+    } catch { client_id = "schneider"; }
+  }
 
   // Use alert_id if provided, else fallback to first alert for this client
   const alertId = alert_id ?? `alert-${client_id}-1`;
 
   try {
-    // Non-blocking: return immediately after queuing; call happens in background
     triggerCall(client_id, alertId, phoeniqs).catch(console.error);
     ok(res, { message: "Call queued — Angelo is preparing your briefing.", callId: alertId });
   } catch (error) { fail(res, error); }

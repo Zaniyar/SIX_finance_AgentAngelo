@@ -27,6 +27,23 @@ function GltfAvatar({ driver, url, speaking }: { driver: LipsyncDriver; url: str
   const blink = useRef({ next: 1.5, t: 0, closing: 0 });
   const { actions, mixer } = useAnimations(animations, group);
 
+  // GLB PBR materials look flat/dark without any env response — nudge them for portrait viewing.
+  useEffect(() => {
+    scene.traverse((obj) => {
+      const mesh = obj as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const raw of materials) {
+        const mat = raw as THREE.MeshStandardMaterial;
+        if (!mat?.isMeshStandardMaterial) continue;
+        mat.envMapIntensity = 0.35;
+        mat.roughness = Math.min(mat.roughness ?? 0.55, 0.72);
+        mat.metalness = Math.min(mat.metalness ?? 0, 0.08);
+        mat.needsUpdate = true;
+      }
+    });
+  }, [scene]);
+
   // Start idle once on mount, never stop it — just crossfade to wave while speaking.
   useEffect(() => {
     const idle = actions["BreathingIdle"] ?? Object.values(actions)[0];

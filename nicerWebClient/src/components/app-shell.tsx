@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { Sparkles } from "lucide-react";
 import sarahAvatar from "@/assets/sarah-avatar.jpg";
+import { AngeloCallButton } from "@/components/AngeloCallButton";
 
 const navLinks = [
   { to: "/", label: "Dashboard" },
@@ -10,10 +11,19 @@ const navLinks = [
   { to: "/copilot", label: "Copilot" },
 ] as const;
 
-export function AppShell({ children, breadcrumbs }: { children: ReactNode; breadcrumbs?: { label: string; to?: string }[] }) {
+export function AppShell({
+  children,
+  breadcrumbs,
+  fullBleed = false,
+}: {
+  children: ReactNode;
+  breadcrumbs?: { label: string; to?: string }[];
+  /** Full viewport content below header (e.g. map). Skips padded main container. */
+  fullBleed?: boolean;
+}) {
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border/70 bg-background/80 backdrop-blur sticky top-0 z-40">
+    <div className={fullBleed ? "h-screen flex flex-col bg-background text-foreground overflow-hidden" : "min-h-screen bg-background text-foreground"}>
+      <header className="border-b border-border/70 bg-background/80 backdrop-blur sticky top-0 z-40 shrink-0">
         <div className="mx-auto max-w-[1400px] px-8 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 group">
             <div className="w-7 h-7 rounded-sm bg-primary flex items-center justify-center">
@@ -39,7 +49,12 @@ export function AppShell({ children, breadcrumbs }: { children: ReactNode; bread
               </Link>
             ))}
           </nav>
-          <div className="flex items-center gap-3 text-sm">
+          <div className="flex items-center gap-2 text-sm">
+            <AngeloCallButton
+              clientId="all"
+              clientName="all clients"
+              className="scale-90"
+            />
             <img
               src={sarahAvatar}
               alt="Sarah"
@@ -62,7 +77,15 @@ export function AppShell({ children, breadcrumbs }: { children: ReactNode; bread
           </div>
         )}
       </header>
-      <main className="mx-auto max-w-[1400px] px-8 py-10">{children}</main>
+      <main
+        className={
+          fullBleed
+            ? "flex-1 min-h-0 overflow-hidden"
+            : "mx-auto max-w-[1400px] px-8 py-10"
+        }
+      >
+        {children}
+      </main>
     </div>
   );
 }
