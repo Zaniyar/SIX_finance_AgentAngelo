@@ -50,12 +50,21 @@ same-sector replacement, mandate/drift checks) is **pure deterministic code** in
 
 ## Digital-twin avatar
 
-The twin scene drives the standard `viseme_*` morph-target contract. A procedural
-placeholder head renders + lip-syncs out of the box. For the realistic **Rocketbox**
-avatar, drop a converted `.glb` in `web/public/avatars/` and set `VITE_AVATAR_URL` —
-see [web/public/avatars/README.md](web/public/avatars/README.md). Voice is the browser
-**Web Speech API**; lip-sync is driven procedurally from speech timing (see
-`web/src/three/lipsync.ts` for the driver abstraction and the audio-element path).
+The twin scene drives the standard `viseme_*` morph-target contract and enables
+**3D immersive rehearsal** — the RM can simulate a full conversation with a client's
+digital twin before the real meeting, practicing tone, objections, and timing in a
+safe environment.
+
+**3D Avatar Technology by [3DClone.me](https://3DClone.me)** — realistic, personalized
+3D human avatars with facial animation and lipsync driven from the `viseme_*` morph
+target contract.
+
+**Immersive rehearsal environment powered by [MetaRoom.city](https://MetaRoom.city/)** —
+a Swiss startup bringing spatial computing to professional training and client
+relationship preparation.
+
+Voice uses **ElevenLabs** for realistic TTS with lipsync driven from the audio
+amplitude analyser (see `nicerWebClient/src/three/lipsync.ts`).
 
 ## Personas (all four work, data-driven)
 
