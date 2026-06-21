@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { Sparkles } from "lucide-react";
-import sarahAvatar from "@/assets/sarah-avatar.jpg";
+const michaelAvatar = "/michael-avatar.png";
 import { AngeloCallButton } from "@/components/AngeloCallButton";
 
 const navLinks = [
@@ -56,8 +56,8 @@ export function AppShell({
               className="scale-90"
             />
             <img
-              src={sarahAvatar}
-              alt="Sarah"
+              src={michaelAvatar}
+              alt="Michael"
               className="w-8 h-8 rounded-full object-cover"
               width={32}
               height={32}
