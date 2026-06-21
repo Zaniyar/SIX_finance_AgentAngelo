@@ -1,5 +1,7 @@
 # Agent Angelo
 
+<a href="http://swissmade.xyz/"><img src="web/public/realite_suisse_gmbh_logo-271x160.webp" width="120" alt="Réalité Suisse GmbH" /></a>
+
 Futuristic, Swiss-clean **relationship-manager intelligence** app for SwissHacks 2026.
 It turns three years of CRM notes + portfolios + live markets into **personalised,
 explainable swap proposals** — within each client's fixed mandate, with the RM always in
