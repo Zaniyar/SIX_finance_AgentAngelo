@@ -377,12 +377,20 @@ router.get("/news", async (req: Request, res: Response) => {
 });
 
 // ── POST /api/copilot-chat ────────────────────────────────────────────────────
-// Streaming chat endpoint for the nicerWebClient copilot.
-// Uses Phoeniqs (already configured) — no extra API keys needed on the frontend.
+import { buildCitationSystemPrompt, extractActiveSources, annotateCitations } from "../middleware/citation-enforcement";
+import { evaluate as opaEvaluate, buildOpaInput, extractClaimedTickers, buildCitationsFromContext } from "../services/opa.service";
+
 router.post("/copilot-chat", async (req: Request, res: Response) => {
   const { messages, context } = req.body as { messages?: ChatMessage[]; context?: string };
   if (!Array.isArray(messages)) return fail(res, new Error("messages[] required"), 400);
   if (!phoeniqs.configured) return fail(res, new Error("Phoeniqs not configured — set PHOENIQS_API_KEY"), 503);
+
+  // Parse context to extract verified sources for citation enforcement
+  let parsedCtx: Record<string, unknown> = {};
+  try { if (context) parsedCtx = JSON.parse(context); } catch { /* ignore */ }
+
+  const activeSources = extractActiveSources(parsedCtx, "book");
+  const citationSuffix = buildCitationSystemPrompt(activeSources);
 
   const system =
     `You are the Relationship Intelligence Copilot for Sarah Meier, a Relationship Manager at a Swiss private bank.\n` +
@@ -400,22 +408,46 @@ router.post("/copilot-chat", async (req: Request, res: Response) => {
     `- Use headers (##) to separate major sections.\n` +
     `- Keep it structured, concise, and numerate.\n\n` +
     `Never invent holdings, prices, or sources not in the data. If something is unknown, say so plainly.` +
-    (context ? `\n\n# BOOK DATA (JSON)\n${context}` : "");
+    (context ? `\n\n# BOOK DATA (JSON)\n${context}` : "") +
+    citationSuffix;
 
   const fullMessages: ChatMessage[] = [{ role: "system", content: system }, ...messages];
 
   try {
-    // Stream via SSE so the frontend can render tokens as they arrive
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders();
 
-    // Phoeniqs service does a single call — stream the response as one chunk
-    const reply = await phoeniqs.chat(fullMessages, { temperature: 0.4, maxTokens: 3000 });
+    const rawReply = await phoeniqs.chat(fullMessages, { temperature: 0.4, maxTokens: 3000 });
 
-    // Emit as a single data event (compatible with the fetch-based streaming reader)
-    res.write(`data: ${JSON.stringify({ reply })}\n\n`);
+    // Extract all portfolio tickers from context for grounding check
+    const allTickers: string[] = (parsedCtx?.clients as any[])
+      ?.flatMap((c: any) => c.holdings?.map((h: any) => h.ticker) ?? []) ?? [];
+
+    // Citation enforcement — annotate reply + detect grounding issues
+    const claimedTickers = extractClaimedTickers(rawReply);
+    const { reply, citations, grounding_warnings } = annotateCitations(
+      rawReply, "book", allTickers, new Map()
+    );
+
+    // OPA grounding check for the book-level copilot (lenient — no product/position data)
+    const opaInput = buildOpaInput({
+      action: "copilot",
+      clientId: "book",
+      portfolioTickers: allTickers,
+      claimedTickers,
+      citations,
+      dataAgeDays: 0,
+    });
+    const decision = await opaEvaluate(opaInput);
+
+    res.write(`data: ${JSON.stringify({
+      reply,
+      citations,
+      grounding_warnings,
+      opa: { allow: decision.allow, reasons: decision.reasons, obligations: decision.obligations },
+    })}\n\n`);
     res.end();
   } catch (error) {
     res.write(`data: ${JSON.stringify({ error: (error as Error).message })}\n\n`);

@@ -1,0 +1,16 @@
+{
+  "policy": {
+    "concentration_limit_pct": {
+      "Defensive": 8.0,
+      "Balanced": 12.0,
+      "Growth": 18.0
+    },
+    "mandate_exclusions": {
+      "Defensive": ["Crypto", "Leveraged", "Unrated"],
+      "Balanced": ["Crypto", "Leveraged"],
+      "Growth": ["Unrated"]
+    },
+    "max_evidence_age_days": 7,
+    "senior_signoff_threshold_chf_m": 5.0
+  }
+}

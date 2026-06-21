@@ -26,7 +26,15 @@ const SUGGESTIONS = [
   "Draft a one-paragraph note for clients holding NVIDIA after the concentration breach.",
 ];
 
-interface Msg { role: "user" | "assistant"; content: string; }
+interface Citation { api_endpoint: string; field: string; value: string; client_id?: string; }
+interface OpaResult { allow: boolean; reasons: string[]; obligations: string[]; }
+interface Msg {
+  role: "user" | "assistant";
+  content: string;
+  citations?: Citation[];
+  grounding_warnings?: string[];
+  opa?: OpaResult;
+}
 
 function CopilotPage() {
   const navigate = useNavigate();
@@ -69,19 +77,26 @@ function CopilotPage() {
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
       let reply = "";
+      let citations: Msg["citations"] = undefined;
+      let grounding_warnings: Msg["grounding_warnings"] = undefined;
+      let opa: Msg["opa"] = undefined;
 
       if (reader) {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
           const chunk = decoder.decode(value, { stream: true });
-          // Each SSE line: "data: {...}\n\n"
           for (const line of chunk.split("\n")) {
             if (!line.startsWith("data: ")) continue;
             try {
               const payload = JSON.parse(line.slice(6));
               if (payload.error) throw new Error(payload.error);
-              if (payload.reply) reply = payload.reply;
+              if (payload.reply) {
+                reply = payload.reply;
+                citations = payload.citations;
+                grounding_warnings = payload.grounding_warnings;
+                opa = payload.opa;
+              }
             } catch (parseErr) {
               if (parseErr instanceof Error && parseErr.message !== "Unexpected end of JSON input") throw parseErr;
             }
@@ -90,7 +105,14 @@ function CopilotPage() {
       }
 
       if (reply) {
-        setMessages(prev => [...prev, { role: "assistant", content: reply }]);
+        // Add assistant message with all metadata in one atomic update
+        setMessages(prev => [...prev, {
+          role: "assistant" as const,
+          content: reply,
+          citations,
+          grounding_warnings,
+          opa,
+        }]);
       }
     } catch (e) {
       setError((e as Error).message);
@@ -349,6 +371,49 @@ function Message({ m, clients, navigate }: {
               </button>
             );
           })}
+          {/* OPA grounding warnings */}
+          {m.grounding_warnings && m.grounding_warnings.length > 0 && (
+            <div className="mt-3 p-2.5 rounded-md border border-destructive/40 bg-destructive/5 space-y-1">
+              {m.grounding_warnings.map((w, i) => (
+                <div key={i} className="flex items-start gap-1.5 text-[11px] text-destructive">
+                  <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                  {w}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* OPA policy status */}
+          {m.opa && (
+            <div className={`mt-2 flex items-center gap-2 text-[10px] px-2.5 py-1.5 rounded border ${m.opa.allow ? "border-positive/30 bg-positive/5 text-positive" : "border-destructive/30 bg-destructive/5 text-destructive"}`}>
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${m.opa.allow ? "bg-positive" : "bg-destructive"}`} />
+              <span className="font-semibold uppercase tracking-wider">{m.opa.allow ? "OPA: Grounded" : "OPA: Policy blocked"}</span>
+              {m.opa.reasons.length > 0 && (
+                <span className="ml-1 opacity-70">— {m.opa.reasons.join("; ")}</span>
+              )}
+              {m.opa.obligations.length > 0 && (
+                <span className="ml-1 text-amber-600">⚑ {m.opa.obligations.join("; ")}</span>
+              )}
+            </div>
+          )}
+
+          {/* Citation sources */}
+          {m.citations && m.citations.length > 0 && (
+            <details className="mt-2">
+              <summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-foreground transition uppercase tracking-wider">
+                {m.citations.length} verified source{m.citations.length !== 1 ? "s" : ""}
+              </summary>
+              <div className="mt-1.5 space-y-1 pl-2 border-l border-border">
+                {[...new Map(m.citations.map(c => [`${c.api_endpoint}::${c.field}`, c])).values()].map((c, i) => (
+                  <div key={i} className="text-[10px] font-mono text-muted-foreground leading-relaxed">
+                    <span className="text-accent">{c.api_endpoint}</span>
+                    <span className="text-muted-foreground/60"> → {c.field}</span>
+                    {c.value && <span className="text-foreground ml-1">= {c.value}</span>}
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
           </>
         )}
       </div>

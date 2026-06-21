@@ -1,0 +1,28 @@
+services:
+  backend:
+    build: ./backend
+    container_name: agentangelo-backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3031:3031"
+    env_file:
+      - ./SIX-Noumena-NTT-Data/demo/.env
+    environment:
+      - NODE_ENV=production
+      - API_PORT=3031
+      - BACKEND_PUBLIC_URL=https://agentangelo.finance
+    volumes:
+      - ./backend/data:/app/data   # persist audit ledger + DNA cache
+
+  frontend:
+    build: ./nicerWebClient
+    container_name: agentangelo-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3030:3030"
+    environment:
+      - NODE_ENV=production
+      - PORT=3030
+      - VITE_API_BASE=https://agentangelo.finance
+    depends_on:
+      - backend
