@@ -1121,6 +1121,10 @@ function RecommendationDetail() {
                 </svg>
               </div>
             </div>
+            <div className="flex items-center justify-end gap-1.5 mt-4 pt-3 border-t border-border/60 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+              <span>Data by</span>
+              <img src="https://upload.wikimedia.org/wikipedia/commons/9/9e/SIX_Group_logo.svg" alt="SIX" className="h-3 w-auto opacity-60" />
+            </div>
           </div>
           {alerts.length > 0 && (
             <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-5">
