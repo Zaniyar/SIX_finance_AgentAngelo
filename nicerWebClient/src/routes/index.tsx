@@ -270,9 +270,11 @@ function EventRow({ event: e }: { event: MarketEvent }) {
             const backendId = rawId.replace(/^c-/, "");
             const backendClients = ["schneider","huber","raeber","ammann"];
             if (!backendClients.includes(backendId)) return null;
+            // Pass the correct alert ID: "{clientId}-conflict" or "{clientId}-opportunity"
+            const alertId = `${backendId}-conflict`;
             return (
               <div onClick={(ev) => ev.stopPropagation()}>
-                <AngeloCallButton clientId={backendId} clientName={backendId} className="scale-90 origin-right" />
+                <AngeloCallButton clientId={backendId} alertId={alertId} clientName={backendId} className="scale-90 origin-right" />
               </div>
             );
           })()}
