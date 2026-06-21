@@ -50,26 +50,11 @@ export function getAudioPath(callId: string): string {
 async function generateCallScript(
   clientId: string,
   alertId: string,
-  phoeniqs: PhoeniqsService
-): Promise<{ script: string; clientName: string; alertTitle: string }> {
-  const client = getClient(clientId);
-  if (!client) throw new Error(`Unknown client: ${clientId}`);
-
-  const holdings = getPortfolio(client.portfolio);
-  const dna = await buildDna(clientId, phoeniqs);
-  const { alerts } = buildAlerts(client, dna);
-  const alert = alerts.find((a) => a.id === alertId) ?? alerts[0];
-  if (!alert) throw new Error(`No alert found for client ${clientId}`);
-
-  const holdingStr = alert.holding
-    ? `${alert.holding.issuer} (CHF ${Math.round(alert.holding.currentChf / 1000)}k, ${((alert.holding.currentChf / holdings.reduce((s, h) => s + h.currentChf, 0)) * 100).toFixed(1)}% of portfolio)`
-    : "a key position";
-
-  const swapStr = alert.swap
-    ? `I recommend swapping into ${alert.swap.toCandidate.issuer}.`
-    : "";
-
-  const dnaHook = client.scenario.dnaHook;
+  phoeniqs: PhoeniqsService,
+  ctx?: ClientContext
+): Promise<{ script: string }> {
+  // If ctx already built, reuse it; otherwise build fresh
+  const c = ctx ?? await buildClientContext(clientId, alertId, phoeniqs);
 
   const messages: ChatMessage[] = [
     {
@@ -85,23 +70,18 @@ async function generateCallScript(
     {
       role: "user",
       content:
-        `Client: ${client.displayName}\n` +
-        `Event: ${client.scenario.event}\n` +
-        `Alert: ${alert.title} — ${alert.body}\n` +
-        `Affected holding: ${holdingStr}\n` +
-        `DNA hook: ${dnaHook}\n` +
-        `Swap suggestion: ${swapStr}\n` +
+        `Client: ${c.clientName}\n` +
+        `Event: ${c.event}\n` +
+        `Alert: ${c.alertTitle} — ${c.alertBody}\n` +
+        `Affected holding: ${c.holdingStr}\n` +
+        `DNA hook: ${c.dnaHook}\n` +
+        `Swap suggestion: ${c.swapStr}\n` +
         `Write the call script now.`,
     },
   ];
 
   const script = await phoeniqs.chat(messages, { temperature: 0.6, maxTokens: 200 });
-
-  return {
-    script: script.trim(),
-    clientName: client.displayName,
-    alertTitle: alert.title,
-  };
+  return { script: script.trim() };
 }
 
 async function synthesizeAudio(script: string, callId: string): Promise<void> {
@@ -152,19 +132,81 @@ const EL_CONVAI_KEY = process.env.ELEVENLABS_CONVAI_API_KEY ?? process.env.ELEVE
 const EL_AGENT_ID = process.env.ELEVENLABS_AGENT_ID ?? "";
 const EL_PHONE_NUMBER_ID = process.env.ELEVENLABS_PHONE_NUMBER_ID ?? "";
 
-async function placeCall(_callId: string): Promise<string> {
+interface ClientContext {
+  clientName: string;
+  alertTitle: string;
+  alertBody: string;
+  holdingStr: string;
+  swapStr: string;
+  dnaHook: string;
+  event: string;
+}
+
+async function buildClientContext(clientId: string, alertId: string, phoeniqs: PhoeniqsService): Promise<ClientContext> {
+  const client = getClient(clientId);
+  if (!client) throw new Error(`Unknown client: ${clientId}`);
+  const holdings = getPortfolio(client.portfolio);
+  const dna = await buildDna(clientId, phoeniqs);
+  const { alerts } = buildAlerts(client, dna);
+  const alert = alerts.find(a => a.id === alertId) ?? alerts[0];
+  if (!alert) throw new Error(`No alert for ${clientId}`);
+  const totalChf = holdings.reduce((s, h) => s + h.currentChf, 0);
+  const holdingStr = alert.holding
+    ? `${alert.holding.issuer} (CHF ${Math.round(alert.holding.currentChf / 1000)}k, ${((alert.holding.currentChf / totalChf) * 100).toFixed(1)}% of portfolio)`
+    : "a key position";
+  const swapStr = alert.swap ? `Recommend swapping into ${alert.swap.toCandidate.issuer}.` : "";
+  return {
+    clientName: client.displayName,
+    alertTitle: alert.title,
+    alertBody: alert.body,
+    holdingStr,
+    swapStr,
+    dnaHook: client.scenario.dnaHook,
+    event: client.scenario.event,
+  };
+}
+
+async function placeCall(_callId: string, ctx?: ClientContext): Promise<string> {
   if (!RM_PHONE_NUMBER) throw new Error("RM_PHONE_NUMBER not set");
 
   // Prefer ElevenLabs ConvAI (two-way), fall back to Twilio one-way
   if (EL_CONVAI_KEY && EL_AGENT_ID && EL_PHONE_NUMBER_ID) {
+    const body: Record<string, unknown> = {
+      agent_id: EL_AGENT_ID,
+      agent_phone_number_id: EL_PHONE_NUMBER_ID,
+      to_number: RM_PHONE_NUMBER,
+    };
+
+    // Override system prompt and first message with client-specific context
+    if (ctx) {
+      body.conversation_config_override = {
+        agent: {
+          first_message: `Hi, this is Agent Angelo. I'm calling about ${ctx.clientName} — there's an urgent portfolio situation. Do you have two minutes?`,
+          prompt: {
+            prompt:
+              `You are Agent Angelo, an AI wealth management assistant at a Swiss private bank.\n` +
+              `You are calling the Relationship Manager about ONE specific client: ${ctx.clientName}.\n\n` +
+              `SITUATION:\n` +
+              `- Event: ${ctx.event}\n` +
+              `- Alert: ${ctx.alertTitle} — ${ctx.alertBody}\n` +
+              `- Affected position: ${ctx.holdingStr}\n` +
+              `- Client DNA / values angle: ${ctx.dnaHook}\n` +
+              `- Recommended action: ${ctx.swapStr || "Review urgently with the client."}\n\n` +
+              `RULES:\n` +
+              `- Focus ONLY on ${ctx.clientName} — do not mention other clients unless asked\n` +
+              `- Max 2-3 sentences per response\n` +
+              `- Always cite the specific number (CHF or %)\n` +
+              `- Sound like a smart colleague, not a robot\n` +
+              `- End the call when the RM confirms they will act`,
+          },
+        },
+      };
+    }
+
     const res = await fetch("https://api.elevenlabs.io/v1/convai/twilio/outbound-call", {
       method: "POST",
       headers: { "xi-api-key": EL_CONVAI_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        agent_id: EL_AGENT_ID,
-        agent_phone_number_id: EL_PHONE_NUMBER_ID,
-        to_number: RM_PHONE_NUMBER,
-      }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`ElevenLabs ConvAI ${res.status}: ${await res.text()}`);
     const json = await res.json() as { callSid?: string; conversation_id?: string };
@@ -218,33 +260,35 @@ export async function triggerCall(
   try {
     record.status = "calling";
 
-    // 1. Generate script
-    const { script, clientName, alertTitle } = await generateCallScript(clientId, alertId, phoeniqs);
+    // 1. Build client context (used for ConvAI override + fallback script)
+    const ctx = await buildClientContext(clientId, alertId, phoeniqs);
+    record.clientName = ctx.clientName;
+    record.alertTitle = ctx.alertTitle;
+
+    // 2. Generate script (for fallback one-way audio only)
+    const { script } = await generateCallScript(clientId, alertId, phoeniqs, ctx);
     record.script = script;
-    record.clientName = clientName;
-    record.alertTitle = alertTitle;
+    console.log(`[Angelo] Script for ${ctx.clientName}:\n${script}\n`);
 
-    console.log(`[Angelo] Script for ${clientName}:\n${script}\n`);
-
-    // 2. Synthesize audio
+    // 3. Synthesize audio (used only in fallback Twilio path)
     await synthesizeAudio(script, callId);
     console.log(`[Angelo] Audio saved → /tmp/angelo-${callId}.mp3`);
 
-    // 3. Place call
-    const twilioSid = await placeCall(callId);
+    // 4. Place call — pass ctx so ConvAI gets client-specific prompt
+    const twilioSid = await placeCall(callId, ctx);
     record.twilioSid = twilioSid;
     record.status = "in-progress";
     console.log(`[Angelo] Call placed → Twilio SID ${twilioSid}`);
 
-    // 4. Audit log
+    // 5. Audit log
     appendAuditLog({
       actor_id: "agent-angelo",
       action: "PROACTIVE_CALL_TRIGGERED",
       object_type: "call",
       object_id: alertId,
-      content: `${clientName}|${alertTitle}|${script}`,
+      content: `${ctx.clientName}|${ctx.alertTitle}|${script}`,
       evidence_ids: [],
-      note: `Called RM about ${clientName}: ${alertTitle}. Script length: ${script.length} chars.`,
+      note: `Called RM about ${ctx.clientName}: ${ctx.alertTitle}. Script length: ${script.length} chars.`,
     });
 
     // 5. Poll for completion in background (non-blocking)
