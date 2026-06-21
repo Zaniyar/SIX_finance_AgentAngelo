@@ -20,7 +20,7 @@ import {
   Check, X, ArrowLeft, MessageSquare, Phone, Mail, Smartphone, UserCheck, Clock, AlertTriangle,
   FileText, Shield, Sparkles, ExternalLink, ChevronRight, ChevronLeft, ChevronDown, Layers, Star, Users, Briefcase, Scale,
   Compass, ShieldAlert, ThumbsUp, ThumbsDown, Trash2, Heart, Cake, Quote, Gift, Newspaper, PhoneCall, ArrowDownLeft, ArrowUpRight,
-  LayoutGrid, Infinity, Settings2, Eye, EyeOff,
+  LayoutGrid, LayoutList, Infinity, Settings2, Eye, EyeOff,
 } from "lucide-react";
 import { AngeloCallButton } from "@/components/AngeloCallButton";
 import { ClientDnaBoard } from "@/components/client-dna-board";
@@ -80,6 +80,17 @@ function RecommendationDetail() {
   const client = getClient(isClientOnly ? id : rec.clientId);
   const navigate = useNavigate();
   const [tab, setTab] = useState<ClientPageTab>(isClientOnly ? "dna" : "reco");
+  const [viewMode, setViewMode] = useState<"list" | "tile">("list");
+
+  // Auto-open all CollapsibleCards when tab or viewMode changes
+  useEffect(() => {
+    const t = setTimeout(() => {
+      document.querySelectorAll<HTMLButtonElement>(".bento-card-trigger").forEach((btn) => {
+        if (btn.getAttribute("aria-expanded") === "false") btn.click();
+      });
+    }, 80);
+    return () => clearTimeout(t);
+  }, [tab, viewMode]);
 
   const allRecs = getRecsForClient(client.id);
   const otherRecs = allRecs.filter((r) => r.id !== rec.id);
@@ -280,7 +291,7 @@ function RecommendationDetail() {
       {allRecs.length > 1 && (
         <CollapsibleCard
           className="mb-8"
-          defaultOpen={true}
+          defaultOpen={false}
           accent="accent"
           triggerClassName="p-4"
           contentClassName="px-4 pb-4 pt-0"
@@ -372,7 +383,7 @@ function RecommendationDetail() {
       )}
 
 
-      <div className="border-b border-border mb-8">
+      <div className="border-b border-border mb-8 flex items-end justify-between">
         <div className="flex gap-8">
           {[{ id: "reco", label: "Recommendation" }, { id: "portfolio", label: "Portfolio" }, { id: "dna", label: "Client DNA" }].map((t) => (
             <button key={t.id} onClick={() => setTab(t.id as typeof tab)}
@@ -381,6 +392,23 @@ function RecommendationDetail() {
               {tab === t.id && <span className="absolute -bottom-px left-0 right-0 h-0.5 bg-accent" />}
             </button>
           ))}
+        </div>
+        {/* View toggle: List (Lovable) ↔ Tiles */}
+        <div className="flex items-center gap-1 mb-2 p-0.5 rounded-lg border border-border bg-secondary/30">
+          <button
+            onClick={() => setViewMode("list")}
+            title="List view"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${viewMode === "list" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <LayoutList className="w-3.5 h-3.5" /> List
+          </button>
+          <button
+            onClick={() => setViewMode("tile")}
+            title="Tile view"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${viewMode === "tile" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <LayoutGrid className="w-3.5 h-3.5" /> Tiles
+          </button>
         </div>
       </div>
 
@@ -399,6 +427,141 @@ function RecommendationDetail() {
       [pooledRecs],
     );
 
+    // ── LIST VIEW (Lovable default) ────────────────────────────────────────────
+    if (viewMode === "list") {
+      return (
+        <div className="space-y-6">
+          {pooledRecs.map((r, idx) => (
+            <div key={r.id}>
+              {isPooling && (
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-accent/15 text-accent">#{idx + 1}</span>
+                  <h2 className="font-display text-xl tracking-tight">{r.title}</h2>
+                </div>
+              )}
+              <Section title="Proposed action" icon={<Sparkles className="w-4 h-4" />}>
+                <p className="text-lg font-display leading-snug">{r.advised}</p>
+                <div className="grid grid-cols-4 gap-px bg-border mt-5 rounded overflow-hidden border border-border">
+                  <Stat label="Portfolio fit" value={`${r.impact.portfolioFit}/100`} />
+                  <Stat label="Risk Δ" value={r.impact.riskDelta} />
+                  <Stat label="Expected return" value={r.impact.expectedReturn} />
+                  <Stat label="Sector shift" value={r.impact.sectorShift} small />
+                </div>
+              </Section>
+              <div className="mt-6">
+                <Section title="Why this matters" icon={<FileText className="w-4 h-4" />}>
+                  <div className="grid grid-cols-1 gap-5">
+                    <Reason label="Why now?" body={r.trigger} />
+                    <Reason label="Why this client?" body={r.whyClient} />
+                    <Reason label="Why this action?" body={r.whyAction} />
+                  </div>
+                </Section>
+              </div>
+              <div className="mt-6">
+                <Section title="Storyline & evidence" icon={<FileText className="w-4 h-4" />} subtitle="All claims cite a source the RM can open">
+                  <p className="text-sm leading-relaxed text-foreground/90">{r.reason.storyline}</p>
+                  <div className="mt-5 border-t border-border pt-4 space-y-3">
+                    {r.reason.sources.map((s, i) => (
+                      <a key={i} href={s.url ?? "#"} target="_blank" rel="noreferrer"
+                        className="group grid grid-cols-[28px_1fr_auto] gap-3 items-start hover:bg-secondary/30 -mx-2 px-2 py-1.5 rounded transition">
+                        <span className="text-[10px] tabular font-mono text-accent mt-0.5">[{i + 1}]</span>
+                        <div>
+                          <div className="text-sm font-medium flex items-center gap-1.5">{s.label}<ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-60 transition" /></div>
+                          {s.outlet && <div className="text-[11px] text-muted-foreground uppercase tracking-wider">{s.outlet}</div>}
+                          {s.excerpt && <div className="text-xs text-foreground/70 italic mt-1 leading-snug border-l-2 border-border pl-2">"{s.excerpt}"</div>}
+                        </div>
+                        <div className="text-xs text-muted-foreground tabular whitespace-nowrap">{s.date}</div>
+                      </a>
+                    ))}
+                  </div>
+                </Section>
+              </div>
+              {r.confidence && (
+                <div className="mt-6">
+                  <Section title="How confident is the AI, and on what?" icon={<ShieldAlert className="w-4 h-4" />} subtitle="Interrogate before you send">
+                    <div className="grid grid-cols-[160px_1fr] gap-5 items-start">
+                      <div>
+                        <div className="relative w-32 h-32">
+                          <svg viewBox="0 0 36 36" className="w-32 h-32 -rotate-90">
+                            <circle cx="18" cy="18" r="15.9" fill="none" stroke="currentColor" strokeWidth="2" className="text-secondary" />
+                            <circle cx="18" cy="18" r="15.9" fill="none" stroke="currentColor" strokeWidth="2"
+                              className={r.confidence.score >= 80 ? "text-positive" : r.confidence.score >= 60 ? "text-accent" : "text-destructive"}
+                              strokeDasharray={`${r.confidence.score} 100`} strokeLinecap="round" />
+                          </svg>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <div className="font-display text-3xl tabular">{r.confidence.score}</div>
+                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">confidence</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Assumptions baked in</div>
+                            <ul className="space-y-1 text-sm">{r.confidence.assumptions.map((a, i) => <li key={i} className="flex gap-2"><span className="text-accent">·</span>{a}</li>)}</ul>
+                          </div>
+                          <div>
+                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">What the AI does not know</div>
+                            <ul className="space-y-1 text-sm">{r.confidence.unknowns.map((a, i) => <li key={i} className="flex gap-2"><span className="text-destructive">?</span>{a}</li>)}</ul>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Section>
+                </div>
+              )}
+              {(r.counterArguments?.length || r.alternatives?.length) && (
+                <div className="mt-6 grid grid-cols-2 gap-6">
+                  {r.counterArguments?.length ? (
+                    <Section title="What could go wrong" icon={<ShieldAlert className="w-4 h-4" />}>
+                      <ul className="space-y-2.5 text-sm">{r.counterArguments.map((c, i) => <li key={i} className="flex gap-2 pb-2.5 border-b border-border last:border-b-0 last:pb-0"><span className="text-destructive font-mono text-xs mt-0.5">{String(i+1).padStart(2,"0")}</span><span>{c}</span></li>)}</ul>
+                    </Section>
+                  ) : null}
+                  {r.alternatives?.length ? (
+                    <Section title="Alternatives considered" icon={<Layers className="w-4 h-4" />}>
+                      <ul className="space-y-3 text-sm">{r.alternatives.map((a, i) => <li key={i} className="pb-3 border-b border-border last:border-b-0 last:pb-0"><div className="font-medium">{a.option}</div><div className="text-xs text-muted-foreground">{a.whyNot}</div></li>)}</ul>
+                    </Section>
+                  ) : null}
+                </div>
+              )}
+              {(r.revenueImpact || r.personalImpact) && (
+                <div className="mt-6 grid grid-cols-2 gap-6">
+                  {r.personalImpact && (
+                    <Section title="The human spark" icon={<Heart className="w-4 h-4" />} subtitle={`Angle: ${r.personalImpact.angle}`}>
+                      <div className="relative bg-gradient-to-br from-accent/10 via-surface to-surface border border-accent/20 rounded p-4">
+                        <Quote className="w-4 h-4 text-accent/50 mb-2" />
+                        <p className="text-sm leading-relaxed italic">{r.personalImpact.story}</p>
+                      </div>
+                    </Section>
+                  )}
+                  {r.revenueImpact && (
+                    <Section title="Business value for the bank" icon={<Briefcase className="w-4 h-4" />}>
+                      <div className="space-y-3 text-sm">
+                        <Kv label="Incremental fees" value={r.revenueImpact.feesChf} />
+                        {r.revenueImpact.crossSell && <Kv label="Adjacent opportunity" value={r.revenueImpact.crossSell} />}
+                      </div>
+                    </Section>
+                  )}
+                </div>
+              )}
+              {idx === pooledRecs.length - 1 && (
+                <div className="mt-6">
+                  <Section title="Compliance & regulatory" icon={<Shield className="w-4 h-4" />}>
+                    <div className="grid grid-cols-3 gap-4">
+                      <CheckRow ok={r.compliance.mandateOk} label="Mandate fit" />
+                      <CheckRow ok={r.compliance.suitabilityOk} label="Suitability" />
+                      <CheckRow ok={r.compliance.cioApproved} label="CIO universe" />
+                    </div>
+                  </Section>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // ── TILE VIEW (Bento, existing) ────────────────────────────────────────────
     return (
       <BentoBoard>
         <HiddenWidgetPanelCloser
@@ -917,6 +1080,86 @@ function RecommendationDetail() {
     const { hiddenWidgets, editingWidgets, setEditingWidgets, widgetTileProps, showWidget } =
       useBentoWidgetVisibility<PortfolioWidgetKey>("aura-portfolio-widget-visibility");
 
+    // ── LIST VIEW (Lovable default) ────────────────────────────────────────────
+    if (viewMode === "list") {
+      return (
+        <div className="space-y-8">
+          <div className="bg-surface border border-border rounded-lg p-6">
+            <div className="grid grid-cols-[1fr_1fr_auto] gap-8 items-center">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">Portfolio value, today</div>
+                <div className="font-display text-4xl tracking-tight tabular">CHF {endVal.toFixed(2)}M</div>
+                <div className="text-xs text-muted-foreground mt-1">Mandate target {client.aum.toFixed(1)}M · {client.mandate}</div>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{tfLabel}</div>
+                  <div className="flex items-center gap-0.5 ml-1">
+                    {timeframes.map((t) => (
+                      <button key={t.key} onClick={() => setTf(t.key)}
+                        className={`px-1.5 py-0.5 text-[10px] font-mono rounded transition ${tf === t.key ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}>{t.key}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-baseline gap-3">
+                  <div className={`font-display text-3xl tracking-tight tabular ${positive ? "text-positive" : "text-destructive"}`}>{positive ? "+" : ""}{pct.toFixed(1)}%</div>
+                  <div className="text-xs text-muted-foreground">from CHF {startVal.toFixed(2)}M
+                    <span className={`ml-2 ${perfBase.vsBench >= 0 ? "text-positive" : "text-destructive"}`}>{perfBase.vsBench >= 0 ? "+" : ""}{perfBase.vsBench.toFixed(1)}% vs {perfBase.benchLabel}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="shrink-0">
+                <svg width={w} height={h + 14} viewBox={`0 0 ${w} ${h + 14}`} className="block">
+                  <defs><linearGradient id="perfFill2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="currentColor" stopOpacity="0.25" /><stop offset="100%" stopColor="currentColor" stopOpacity="0" /></linearGradient></defs>
+                  <g className={positive ? "text-positive" : "text-destructive"}>
+                    <polyline fill="none" stroke="currentColor" strokeWidth="1.8" points={pts} />
+                    <polygon fill="url(#perfFill2)" points={`0,${h} ${pts} ${w},${h}`} />
+                  </g>
+                  <g className="text-muted-foreground" fontSize="9" fontFamily="ui-monospace, monospace">
+                    {monthLabels.map((m, i) => { if (i % labelStride !== 0 && i !== series.length - 1) return null; return <text key={i} x={(i / (series.length - 1)) * w} y={h + 12} textAnchor={i === 0 ? "start" : i === series.length - 1 ? "end" : "middle"} fill="currentColor">{m}</text>; })}
+                  </g>
+                </svg>
+              </div>
+            </div>
+          </div>
+          {alerts.length > 0 && (
+            <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-5">
+              <div className="flex items-center gap-2 mb-3"><AlertTriangle className="w-4 h-4 text-destructive" /><h3 className="text-sm font-medium">Holdings flagged for review</h3></div>
+              <div className="space-y-2">{alerts.map((h) => { const link = alertLinkFor(h.ticker); const row = (<div className="flex items-center justify-between text-sm"><div className="flex items-baseline gap-3"><span className="font-mono text-xs">{h.ticker}</span><span>{h.name}</span></div><div className="flex items-center gap-2 text-xs text-destructive">{h.alert}{link && <ChevronRight className="w-3 h-3" />}</div></div>); return link ? <Link key={h.ticker} {...link} className="block border-t border-destructive/15 pt-2 first:border-t-0 first:pt-0 hover:bg-destructive/5 -mx-2 px-2 py-1 rounded transition">{row}</Link> : <div key={h.ticker} className="border-t border-destructive/15 pt-2 first:border-t-0 first:pt-0">{row}</div>; })}</div>
+            </div>
+          )}
+          <div className="grid grid-cols-[1fr_1.4fr] gap-8">
+            <Section title="Actual vs Target allocation" subtitle="Bars show actual, line marks target">
+              <div className="space-y-4 mt-2">
+                {total.map((a) => { const dev = a.value - a.target; const maxV = Math.max(...total.map((x) => Math.max(x.value, x.target))) * 1.1; const actualPct = (a.value / maxV) * 100; const targetPct = (a.target / maxV) * 100; return (
+                  <div key={a.name}>
+                    <div className="flex items-baseline justify-between mb-1.5"><span className="text-sm">{a.name}</span><span className="text-xs tabular text-muted-foreground"><span className="font-medium text-foreground">{a.value}%</span> · target {a.target}%<span className={`ml-2 ${Math.abs(dev) > 3 ? "text-destructive" : dev > 0 ? "text-accent" : "text-muted-foreground"}`}>{dev > 0 ? "+" : ""}{dev}%</span></span></div>
+                    <div className="relative h-3 bg-secondary/60 rounded"><div className={`absolute inset-y-0 left-0 rounded ${Math.abs(dev) > 3 ? "bg-destructive/60" : "bg-primary/70"}`} style={{ width: `${actualPct}%` }} /><div className="absolute inset-y-[-4px] w-0.5 bg-accent" style={{ left: `calc(${targetPct}% - 1px)` }} /></div>
+                  </div>
+                ); })}
+              </div>
+            </Section>
+            <Section title="Holdings" subtitle="Reference & market data via SIX MCP">
+              <div className="border border-border rounded overflow-hidden">
+                <div className="grid grid-cols-[1fr_150px_90px_110px_70px_30px] gap-3 px-4 py-2 bg-secondary/40 text-[10px] uppercase tracking-wider text-muted-foreground"><div>Instrument</div><div>ISIN / Valor</div><div>Venue</div><div className="text-right">Last px</div><div className="text-right">Weight</div><div /></div>
+                {client.portfolio.holdings.map((h) => { const link = h.alert ? alertLinkFor(h.ticker) : null; const dayColor = h.lastPrice?.pctDay == null ? "text-muted-foreground" : h.lastPrice.pctDay > 0 ? "text-positive" : h.lastPrice.pctDay < 0 ? "text-destructive" : "text-muted-foreground"; return (
+                  <div key={h.ticker} className="grid grid-cols-[1fr_150px_90px_110px_70px_30px] gap-3 px-4 py-3 border-t border-border text-sm items-center">
+                    <div><div className="flex items-center gap-2"><span className="font-mono text-[11px] text-muted-foreground">{h.ticker}</span><span className="truncate">{h.name}</span></div><div className="text-[11px] text-muted-foreground mt-0.5">{h.sector}{h.instrumentType ? ` · ${h.instrumentType}` : ""}</div>{h.alert && <div className="text-[11px] text-destructive mt-0.5">{h.alert}</div>}</div>
+                    <div className="font-mono text-[11px] leading-tight"><div>{h.isin ?? "-"}</div><div className="text-muted-foreground">Valor {h.valor ?? "-"}</div></div>
+                    <div className="font-mono text-[11px]"><div>{h.primaryMic ?? "-"}</div><div className="text-muted-foreground">{h.venueCcy ?? ""}</div></div>
+                    <div className="text-right tabular text-xs">{h.lastPrice ? (<><div>{h.lastPrice.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-muted-foreground">{h.lastPrice.ccy}</span></div><div className={`text-[10px] ${dayColor}`}>{h.lastPrice.pctDay != null ? `${h.lastPrice.pctDay > 0 ? "+" : ""}${h.lastPrice.pctDay.toFixed(1)}%` : ""}<span className="text-muted-foreground"> · {h.lastPrice.asOf}</span></div></>) : <span className="text-muted-foreground">-</span>}</div>
+                    <div className="text-right tabular">{h.weight.toFixed(1)}%</div>
+                    <div>{h.alert && (link ? <Link {...link} title={`Open action for ${h.ticker}`} className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-destructive/10 transition"><AlertTriangle className="w-3.5 h-3.5 text-destructive" /></Link> : <span title={h.alert} className="inline-flex"><AlertTriangle className="w-3.5 h-3.5 text-destructive/50" /></span>)}</div>
+                  </div>
+                ); })}
+              </div>
+            </Section>
+          </div>
+        </div>
+      );
+    }
+
+    // ── TILE VIEW (Bento, existing) ────────────────────────────────────────────
     return (
       <BentoBoard>
         <HiddenWidgetPanelCloser editingWidgets={editingWidgets} hiddenWidgets={hiddenWidgets} />
@@ -1182,6 +1425,134 @@ function RecommendationDetail() {
       useBentoWidgetVisibility<DnaWidgetKey>("aura-dna-widget-visibility");
     const [dnaView, setDnaView] = useState<DnaView>("tiles");
 
+    // ── LIST VIEW (Lovable default) ────────────────────────────────────────────
+    if (viewMode === "list") {
+      type Density = "Essentials" | "Standard" | "Full";
+      const [density, setDensity] = useState<Density>("Standard");
+      const show = (level: Density) =>
+        density === "Full" || (density === "Standard" && level !== "Full") || (density === "Essentials" && level === "Essentials");
+      return (
+        <div className="space-y-8">
+          <div className="flex items-center justify-between bg-surface border border-border rounded-lg px-4 py-2.5">
+            <div className="text-xs text-muted-foreground"><span className="uppercase tracking-[0.18em]">View density</span><span className="ml-3 text-foreground/70">Choose how much of the DNA to surface.</span></div>
+            <div className="flex items-center gap-1 bg-secondary/40 border border-border rounded-md p-0.5">
+              {(["Essentials", "Standard", "Full"] as Density[]).map((opt) => (
+                <button key={opt} onClick={() => setDensity(opt)} className={`px-3 py-1 text-xs rounded transition-colors ${density === opt ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{opt}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Memory card */}
+          <div className="bg-surface border border-border rounded-lg overflow-hidden">
+            <div className="grid grid-cols-[360px_1fr] gap-0">
+              <div className="relative bg-gradient-to-br from-accent/15 via-secondary/40 to-surface p-6 border-r border-border flex flex-col">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-3">Client memory card</div>
+                {client.avatar && <img src={client.avatar} alt={client.name} className="w-full aspect-[4/5] rounded-md object-cover border border-border mb-4" />}
+                <div className="font-display text-xl tracking-tight">{client.name}</div>
+                <div className="text-xs text-muted-foreground mt-1">{client.archetype}</div>
+                <div className="text-[11px] text-muted-foreground mt-2">{client.domicile} · {client.timezone}</div>
+                {d.personal?.voice && <div className="mt-4 pt-4 border-t border-border"><Quote className="w-3.5 h-3.5 text-accent/60 mb-1" /><p className="text-xs italic">"{d.personal.voice}"</p></div>}
+              </div>
+              <div className="p-6 grid grid-cols-2 gap-x-8 gap-y-6">
+                <MemoryPillar title="Values" icon={<Heart className="w-3.5 h-3.5" />} items={d.values.map((v) => ({ text: v.label, c: v.confidence }))} />
+                <MemoryPillar title="Business & wealth" icon={<Briefcase className="w-3.5 h-3.5" />} items={[...(d.wealthSource ? [{ text: d.wealthSource, c: "Explicit" as const }] : []), ...(d.interests ?? []).map((i) => ({ text: i, c: "Pattern" as const }))]} />
+                <MemoryPillar title="Family context" icon={<Users className="w-3.5 h-3.5" />} items={(d.personal?.family ?? []).map((f) => ({ text: `${f.name}${f.relation ? " · " + f.relation : ""}`, c: "Explicit" as const }))} />
+                <MemoryPillar title="Preferences" icon={<Compass className="w-3.5 h-3.5" />} items={(d.preferences ?? []).map((p) => ({ text: p, c: "Pattern" as const }))} />
+              </div>
+            </div>
+          </div>
+
+          {/* Do/Don't cheat-sheet */}
+          <Section title="RM cheat-sheet" subtitle="Dos and Don'ts, sourced from CRM notes and DNA extraction">
+            <div className="grid grid-cols-2 gap-8">
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><ThumbsUp className="w-3 h-3 text-positive" /> Do</div>
+                <ul className="space-y-2">{(d.dos ?? []).map((item, i) => <li key={i} className="flex gap-2 text-sm"><Check className="w-3.5 h-3.5 text-positive mt-0.5 shrink-0" />{item}</li>)}</ul>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><ThumbsDown className="w-3 h-3 text-destructive" /> Don't</div>
+                <ul className="space-y-2">{(d.donts ?? []).map((item, i) => <li key={i} className="flex gap-2 text-sm"><X className="w-3.5 h-3.5 text-destructive mt-0.5 shrink-0" />{item}</li>)}</ul>
+              </div>
+            </div>
+          </Section>
+
+          {/* Timeline */}
+          <Section title="News about the client" subtitle="Life events, meetings, trades — reconstructed from CRM notes">
+            <div className="relative pl-6">
+              <div className="absolute left-2 top-2 bottom-2 w-px bg-border" />
+              <div className="space-y-4">
+                {(d.timeline ?? []).map((t, i) => (
+                  <div key={i} className="grid grid-cols-[90px_60px_1fr_90px] gap-4 items-start">
+                    <div className="text-[11px] text-muted-foreground tabular">{t.date}</div>
+                    <div className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border inline-block ${t.type === "Life" ? "bg-accent/10 text-accent border-accent/20" : t.type === "Trade" ? "bg-positive/10 text-positive border-positive/20" : "bg-secondary text-muted-foreground border-border"}`}>{t.type}</div>
+                    <div className="text-sm leading-snug">{t.text}</div>
+                    <div />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Section>
+
+          {show("Standard") && d.media && d.media.length > 0 && (
+            <Section title="Media & news mentions">
+              <div className="divide-y divide-border -mx-6">
+                {d.media.map((m, i) => (
+                  <a key={i} href={m.url ?? "#"} target="_blank" rel="noreferrer" className="grid grid-cols-[90px_1fr_90px_90px] gap-4 px-6 py-3 hover:bg-secondary/30 transition items-start">
+                    <div className="text-[11px] text-muted-foreground tabular">{m.date}</div>
+                    <div><div className="text-sm font-medium">{m.title}</div><div className="text-xs text-muted-foreground">{m.outlet}</div></div>
+                    <div className={`text-[10px] uppercase px-1.5 py-0.5 rounded border ${m.sentiment === "Positive" ? "bg-positive/10 text-positive border-positive/20" : m.sentiment === "Negative" ? "bg-destructive/10 text-destructive border-destructive/20" : "bg-secondary text-muted-foreground border-border"}`}>{m.sentiment}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase">{m.confidence}</div>
+                  </a>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {show("Standard") && d.crmTouchpoints && d.crmTouchpoints.length > 0 && (
+            <Section title="CRM touchpoints">
+              <div className="divide-y divide-border -mx-6">
+                {d.crmTouchpoints.map((t, i) => (
+                  <div key={i} className="grid grid-cols-[90px_28px_110px_1fr_120px] gap-4 px-6 py-3 items-start">
+                    <div className="text-[11px] text-muted-foreground tabular">{t.date}</div>
+                    <div>{t.direction === "In" ? <ArrowDownLeft className="w-3.5 h-3.5 text-positive" /> : <ArrowUpRight className="w-3.5 h-3.5 text-accent" />}</div>
+                    <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{t.channel}</div>
+                    <div className="text-sm">{t.subject}</div>
+                    <div className="text-[11px] text-muted-foreground tabular text-right">{t.durationMin ? `${t.durationMin}min` : ""}</div>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {show("Full") && d.behavioralPatterns && d.behavioralPatterns.length > 0 && (
+            <div className="grid grid-cols-2 gap-6">
+              <Section title="Behavioural patterns">
+                <ul className="space-y-2 text-sm">{d.behavioralPatterns.map((b, i) => <li key={i} className="flex gap-2"><span className="text-accent">·</span>{b}</li>)}</ul>
+              </Section>
+              <Section title="Sensitivities & interests">
+                <ul className="space-y-2 text-sm">{(d.sensitivities ?? []).map((s, i) => <li key={i} className="flex gap-2"><span className="text-destructive">!</span>{s}</li>)}</ul>
+              </Section>
+            </div>
+          )}
+
+          {show("Full") && (
+            <Section title="Values & convictions">
+              <div className="grid grid-cols-2 gap-2">
+                {d.values.map((v, i) => (
+                  <div key={i} className="flex items-center gap-3 p-2 rounded hover:bg-secondary/30 transition">
+                    <div className="flex-1 text-sm">{v.label}</div>
+                    <ConfidenceChip c={v.confidence} />
+                    <div className="w-16 h-1.5 bg-secondary rounded-full overflow-hidden"><div className="h-full bg-accent/70 rounded-full" style={{ width: `${(v.weight / 10) * 100}%` }} /></div>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
+        </div>
+      );
+    }
+
+    // ── TILE VIEW (Bento, existing) ────────────────────────────────────────────
     if (dnaView === "board") {
       return (
         <div className="space-y-3">
@@ -1611,10 +1982,6 @@ function useBentoBoard() {
 }
 
 function BentoBoard({ children }: { children: ReactNode }) {
-  // Render as plain div — no context provided, so Section always renders as CollapsibleCard
-  return <div className="space-y-4">{children}</div>;
-}
-function _BentoBoardOriginal({ children }: { children: ReactNode }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const panelsRef = useMemo(() => new Map<string, BentoPanelEntry>(), []);
   const [, bump] = useState(0);
@@ -1678,11 +2045,9 @@ function useBentoWidgetVisibility<T extends string>(storageKey: string) {
     onVisibilityToggle: () => toggleWidgetVisibility(key),
   });
 
-  // Always show all widgets open — user can collapse individually via CollapsibleCard
-  const showWidget = (_key: T) => true;
-  const widgetTilePropsOpen = (_key: T) => ({});
+  const showWidget = (key: T) => editingWidgets || isWidgetVisible(key);
 
-  return { hiddenWidgets, editingWidgets, setEditingWidgets, widgetTileProps: widgetTilePropsOpen, showWidget };
+  return { hiddenWidgets, editingWidgets, setEditingWidgets, widgetTileProps, showWidget };
 }
 
 function WidgetCustomizeHeader({
@@ -2113,9 +2478,33 @@ function Section({
   widgetHidden?: boolean;
   onVisibilityToggle?: () => void;
 }) {
-  // Always render as CollapsibleCard open by default — no BentoTile thumbnails
+  const board = useBentoBoard();
+
+  useLayoutEffect(() => {
+    if (!id || !board) return;
+    board.register(id, { title, subtitle, icon, accent, content: children });
+    return () => board.unregister(id);
+  }, [id, title, subtitle, icon, accent, children, board]);
+
+  if (id && board && bento) {
+    return (
+      <BentoTile
+        title={title}
+        subtitle={subtitle}
+        icon={icon}
+        accent={accent}
+        bento={bento}
+        active={!editMode && board.openId === id}
+        onSelect={() => board.toggle(id)}
+        editMode={editMode}
+        widgetHidden={widgetHidden}
+        onEditToggle={onVisibilityToggle}
+      />
+    );
+  }
+
   return (
-    <CollapsibleCard title={title} subtitle={subtitle} icon={icon} defaultOpen={true} bento={bento} accent={accent}>
+    <CollapsibleCard title={title} subtitle={subtitle} icon={icon} defaultOpen={defaultOpen} bento={bento} accent={accent}>
       {children}
     </CollapsibleCard>
   );
