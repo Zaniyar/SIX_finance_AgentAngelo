@@ -19,11 +19,10 @@ export function AppShell({
 }: {
   children: ReactNode;
   breadcrumbs?: { label: string; to?: string }[];
-  /** Full viewport content below header (e.g. map). Skips padded main container. */
   fullBleed?: boolean;
 }) {
   return (
-    <div className={fullBleed ? "h-screen flex flex-col bg-background text-foreground overflow-hidden" : "min-h-screen bg-background text-foreground"}>
+    <div className={fullBleed ? "h-screen flex flex-col bg-background text-foreground overflow-hidden" : "min-h-screen bg-background text-foreground flex flex-col"}>
       <header className="border-b border-border/70 bg-background/80 backdrop-blur sticky top-0 z-40 shrink-0">
         <div className="mx-auto max-w-[1400px] px-8 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 group">
@@ -51,18 +50,8 @@ export function AppShell({
             ))}
           </nav>
           <div className="flex items-center gap-2 text-sm">
-            <AngeloCallButton
-              clientId="all"
-              clientName="all clients"
-              className="scale-90"
-            />
-            <img
-              src={michaelAvatar}
-              alt="Michael"
-              className="w-8 h-8 rounded-full object-cover"
-              width={32}
-              height={32}
-            />
+            <AngeloCallButton clientId="all" clientName="all clients" className="scale-90" />
+            <img src={michaelAvatar} alt="Michael" className="w-8 h-8 rounded-full object-cover" width={32} height={32} />
           </div>
         </div>
         {breadcrumbs && (
@@ -78,16 +67,43 @@ export function AppShell({
           </div>
         )}
       </header>
-      <main
-        className={
-          fullBleed
-            ? "flex-1 min-h-0 overflow-hidden"
-            : "mx-auto max-w-[1400px] px-8 py-10"
-        }
-      >
+
+      <main className={fullBleed ? "flex-1 min-h-0 overflow-hidden" : "flex-1 mx-auto max-w-[1400px] w-full px-8 py-10"}>
         {children}
       </main>
+
+      {!fullBleed && <Footer />}
       <GlobalCopilot />
     </div>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="border-t border-border/60 bg-background/60 mt-auto shrink-0">
+      <div className="mx-auto max-w-[1400px] px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-5 h-5 rounded-sm bg-primary flex items-center justify-center">
+            <span className="font-display text-primary-foreground text-xs leading-none">A</span>
+          </div>
+          <span className="text-xs text-muted-foreground">
+            AgentAngelo · AURA · SwissHacks 2026
+          </span>
+        </div>
+
+        <div className="flex items-center gap-6">
+          <Link to="/about" className="text-xs text-muted-foreground hover:text-foreground transition-colors">About</Link>
+          <a href="https://github.com/Zaniyar/SIX_finance_AgentAngelo" target="_blank" rel="noreferrer" className="text-xs text-muted-foreground hover:text-foreground transition-colors">GitHub</a>
+          <a href="mailto:jaha@zhaw.ch" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Contact</a>
+        </div>
+
+        <div className="flex items-center gap-4 opacity-60">
+          <a href="http://swissmade.xyz/" target="_blank" rel="noreferrer">
+            <img src="https://raw.githubusercontent.com/Zaniyar/SIX_finance_AgentAngelo/main/web/public/realite-suisse-logo.png" alt="Réalité Suisse" className="h-5 w-auto grayscale hover:grayscale-0 transition" />
+          </a>
+          <img src="https://cdn.prod.website-files.com/65d86f019d4bd1a34646a0ae/65d87371590440050fa08a8f_1_SIX-p-1080.png" alt="SIX" className="h-4 w-auto grayscale hover:grayscale-0 transition" />
+        </div>
+      </div>
+    </footer>
   );
 }
