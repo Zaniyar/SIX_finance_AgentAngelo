@@ -12,7 +12,7 @@ Built for **SwissHacks 2026**
 
 **Built with and supported by**
 
-<a href="http://swissmade.xyz/"><img src="https://swissmade.xyz/realite/images/responsive/realite_suisse_gmbh_logo-271x160.webp" height="40" alt="Réalité Suisse GmbH" /></a>&nbsp;&nbsp;&nbsp;
+<a href="http://swissmade.xyz/"><img src="https://raw.githubusercontent.com/Zaniyar/SIX_finance_AgentAngelo/main/web/public/realite-suisse-logo.png" height="40" alt="Réalité Suisse GmbH" /></a>&nbsp;&nbsp;&nbsp;
 <img src="https://cdn.prod.website-files.com/65d86f019d4bd1a34646a0ae/65ee074c28ba5c0aaa3ea114_Tenity_logo_white%20(1).svg" height="36" alt="Tenity" />&nbsp;&nbsp;&nbsp;
 <img src="https://cdn.prod.website-files.com/65d86f019d4bd1a34646a0ae/65d87371590440050fa08a8f_1_SIX-p-1080.png" height="36" alt="SIX" />
 
