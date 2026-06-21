@@ -1611,6 +1611,10 @@ function useBentoBoard() {
 }
 
 function BentoBoard({ children }: { children: ReactNode }) {
+  // Render as plain div — no context provided, so Section always renders as CollapsibleCard
+  return <div className="space-y-4">{children}</div>;
+}
+function _BentoBoardOriginal({ children }: { children: ReactNode }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const panelsRef = useMemo(() => new Map<string, BentoPanelEntry>(), []);
   const [, bump] = useState(0);
