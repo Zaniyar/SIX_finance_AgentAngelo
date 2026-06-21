@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Sparkles } from "lucide-react";
 const michaelAvatar = "/michael-avatar.png";
 import { AngeloCallButton } from "@/components/AngeloCallButton";
+import { GlobalCopilot } from "@/components/GlobalCopilot";
 
 const navLinks = [
   { to: "/", label: "Dashboard" },
@@ -86,6 +87,7 @@ export function AppShell({
       >
         {children}
       </main>
+      <GlobalCopilot />
     </div>
   );
 }

@@ -151,14 +151,14 @@ export function AngeloCallButton({ clientId, alertId, clientName, className = ""
           onClick={isActive ? undefined : status === "completed" || status === "failed" ? reset : () => setShowModal(true)}
           disabled={isActive}
           className={[
-            "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-200 border",
+            "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 border",
             isActive
-              ? "bg-amber-500/20 border-amber-500/50 text-amber-300 cursor-not-allowed"
+              ? "bg-secondary border-border text-muted-foreground cursor-not-allowed"
               : status === "completed"
-              ? "bg-green-500/15 border-green-500/40 text-green-400 hover:bg-green-500/25 cursor-pointer"
+              ? "bg-positive/10 border-positive/30 text-positive hover:bg-positive/15 cursor-pointer"
               : status === "failed"
-              ? "bg-red-500/15 border-red-500/40 text-red-400 hover:bg-red-500/25 cursor-pointer"
-              : "bg-violet-600/20 border-violet-500/40 text-violet-300 hover:bg-violet-600/30 hover:border-violet-400/60 cursor-pointer",
+              ? "bg-destructive/10 border-destructive/30 text-destructive hover:bg-destructive/15 cursor-pointer"
+              : "bg-accent/10 border-accent/30 text-accent hover:bg-accent/15 hover:border-accent/50 cursor-pointer",
           ].join(" ")}
         >
           {isActive ? (

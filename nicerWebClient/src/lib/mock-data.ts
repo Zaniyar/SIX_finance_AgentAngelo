@@ -132,7 +132,7 @@ export type MarketEvent = {
 // ─────────────────────────────────────────────────────────────────────────
 // CLIENTS, 4 personas mapped from the SwissHacks CRM + Portfolio workbook.
 // Mandate size 10.0 CHF m (per spreadsheet "Target amount" = 10,000,000).
-// RM in charge: Sarah Meier (handover from Thomas Keller, Dec 2025).
+// RM in charge: Michael Berger (handover from Thomas Keller, Dec 2025).
 // ─────────────────────────────────────────────────────────────────────────
 
 export const clients: Client[] = [
@@ -188,7 +188,7 @@ export const clients: Client[] = [
         { date: "2026-03-24", type: "Trade", text: "CHF 1.0m initial endowment transferred from portfolio to Schneider Family Foundation." },
         { date: "2026-03-05", type: "Note", text: "Hubertus, intense email: do an audit of our core European pharma name's neurology pipeline." },
         { date: "2026-01-22", type: "Meeting", text: "Urgent strategy realign, family establishes Venture Philanthropy foundation." },
-        { date: "2026-01-09", type: "Life", text: "Hubertus profoundly distracted on first call with Sarah, hinted at family medical situation." },
+        { date: "2026-01-09", type: "Life", text: "Hubertus profoundly distracted on first call with Michael, hinted at family medical situation." },
       ],
       notes: [
         { date: "2026-05-19", text: "Tracking a US biotech (Parkinson's asset) Hubertus encountered, possible 2026H2 conversation." },
@@ -236,14 +236,14 @@ export const clients: Client[] = [
         { date: "2026-02-26", outlet: "Reuters Health", title: "Major pharma scales back chronic-disease pipelines", sentiment: "Negative", url: "#media-reuters-health", summary: "Context for Hubertus's pharma pipeline audit request.", confidence: "Pattern" },
       ],
       crmTouchpoints: [
-        { date: "2026-05-19", channel: "Phone", direction: "In", subject: "US biotech meeting, Parkinson's asset", outcome: "Logged for monitoring", owner: "Sarah Meier", durationMin: 24 },
-        { date: "2026-05-02", channel: "Phone", direction: "In", subject: "Carmen, foundation clinical audit statement", outcome: "Statement issued same day", owner: "Sarah Meier", durationMin: 9 },
-        { date: "2026-04-14", channel: "In-Person", direction: "Out", subject: "Medical charity gala, brief meeting", outcome: "Carmen mentioned Chloe having a hard week", owner: "Sarah Meier", durationMin: 20 },
-        { date: "2026-03-24", channel: "Phone", direction: "In", subject: "Carmen, CHF 1m endowment transfer to foundation", outcome: "Processed", owner: "Sarah Meier", durationMin: 12 },
-        { date: "2026-03-05", channel: "Email", direction: "Out", subject: "Detailed neurology pipeline report sent", outcome: "Hubertus replied with intense purpose", owner: "Sarah Meier" },
-        { date: "2026-02-18", channel: "Phone", direction: "In", subject: "Audit request: European pharma neurodegenerative pipeline", outcome: "Triggered pipeline note", owner: "Sarah Meier", durationMin: 18 },
-        { date: "2026-01-22", channel: "Meeting", direction: "Out", subject: "Urgent strategy realign, foundation established", owner: "Sarah Meier", durationMin: 110 },
-        { date: "2026-01-09", channel: "Phone", direction: "In", subject: "First call post-handover, Hubertus emotional", outcome: "Sensitivity flagged, no trades", owner: "Sarah Meier", durationMin: 22 },
+        { date: "2026-05-19", channel: "Phone", direction: "In", subject: "US biotech meeting, Parkinson's asset", outcome: "Logged for monitoring", owner: "Michael Berger", durationMin: 24 },
+        { date: "2026-05-02", channel: "Phone", direction: "In", subject: "Carmen, foundation clinical audit statement", outcome: "Statement issued same day", owner: "Michael Berger", durationMin: 9 },
+        { date: "2026-04-14", channel: "In-Person", direction: "Out", subject: "Medical charity gala, brief meeting", outcome: "Carmen mentioned Chloe having a hard week", owner: "Michael Berger", durationMin: 20 },
+        { date: "2026-03-24", channel: "Phone", direction: "In", subject: "Carmen, CHF 1m endowment transfer to foundation", outcome: "Processed", owner: "Michael Berger", durationMin: 12 },
+        { date: "2026-03-05", channel: "Email", direction: "Out", subject: "Detailed neurology pipeline report sent", outcome: "Hubertus replied with intense purpose", owner: "Michael Berger" },
+        { date: "2026-02-18", channel: "Phone", direction: "In", subject: "Audit request: European pharma neurodegenerative pipeline", outcome: "Triggered pipeline note", owner: "Michael Berger", durationMin: 18 },
+        { date: "2026-01-22", channel: "Meeting", direction: "Out", subject: "Urgent strategy realign, foundation established", owner: "Michael Berger", durationMin: 110 },
+        { date: "2026-01-09", channel: "Phone", direction: "In", subject: "First call post-handover, Hubertus emotional", outcome: "Sensitivity flagged, no trades", owner: "Michael Berger", durationMin: 22 },
       ],
       personal: {
         keyDates: [
@@ -273,8 +273,8 @@ export const clients: Client[] = [
           "Hubertus must hear hard news from us first, never read it",
         ],
         giftNotes: "A handwritten note around Chloe's birthday week, no flowers, no wine. Tasteful book on neuroscience history has landed well.",
-        lastPersonalTouch: { date: "2026-04-14", text: "Carmen at the gala, brief and warm. She asked Sarah to keep things 'human' going forward." },
-        voice: "Sarah, our money has to do something with this. Otherwise, what is the point.",
+        lastPersonalTouch: { date: "2026-04-14", text: "Carmen at the gala, brief and warm. She asked Michael to keep things 'human' going forward." },
+        voice: "Michael, our money has to do something with this. Otherwise, what is the point.",
       },
     },
     portfolio: {
@@ -406,11 +406,11 @@ export const clients: Client[] = [
         { date: "2026-03-15", outlet: "Mongabay", title: "Atlantic Forest restoration accelerates as private donors step in", sentiment: "Positive", url: "#media-mongabay", summary: "Mentions Huber-funded land acquisition.", confidence: "Pattern" },
       ],
       crmTouchpoints: [
-        { date: "2026-05-12", channel: "Phone", direction: "In", subject: "Elena, summer travel plans", outcome: "No business, contact via Marius until July", owner: "Sarah Meier", durationMin: 8 },
-        { date: "2026-04-14", channel: "In-Person", direction: "Out", subject: "Charity gala, brief interaction", outcome: "Marius praised the bank's advocacy work", owner: "Sarah Meier", durationMin: 15 },
-        { date: "2026-02-17", channel: "Phone", direction: "In", subject: "NZZ article, corporate accountability", outcome: "Triggered pipeline of ESG-aligned ideas", owner: "Sarah Meier", durationMin: 22 },
-        { date: "2026-01-15", channel: "Video Call", direction: "Out", subject: "Annual Strategy 2026", outcome: "Mandate confirmed, defensive + sustainability tilt", owner: "Sarah Meier", durationMin: 65 },
-        { date: "2026-01-08", channel: "Phone", direction: "Out", subject: "Introductory call post-handover", outcome: "Marius: expect the same values-led approach as Keller", owner: "Sarah Meier", durationMin: 18 },
+        { date: "2026-05-12", channel: "Phone", direction: "In", subject: "Elena, summer travel plans", outcome: "No business, contact via Marius until July", owner: "Michael Berger", durationMin: 8 },
+        { date: "2026-04-14", channel: "In-Person", direction: "Out", subject: "Charity gala, brief interaction", outcome: "Marius praised the bank's advocacy work", owner: "Michael Berger", durationMin: 15 },
+        { date: "2026-02-17", channel: "Phone", direction: "In", subject: "NZZ article, corporate accountability", outcome: "Triggered pipeline of ESG-aligned ideas", owner: "Michael Berger", durationMin: 22 },
+        { date: "2026-01-15", channel: "Video Call", direction: "Out", subject: "Annual Strategy 2026", outcome: "Mandate confirmed, defensive + sustainability tilt", owner: "Michael Berger", durationMin: 65 },
+        { date: "2026-01-08", channel: "Phone", direction: "Out", subject: "Introductory call post-handover", outcome: "Marius: expect the same values-led approach as Keller", owner: "Michael Berger", durationMin: 18 },
       ],
       personal: {
         keyDates: [
@@ -439,8 +439,8 @@ export const clients: Client[] = [
           "Their wealth is a tool for the foundation, not the goal",
         ],
         giftNotes: "A donation to a small NGO they admire, not flowers. Books on rewilding land well.",
-        lastPersonalTouch: { date: "2026-04-14", text: "Brief gala chat, Marius asked Sarah to call when the bank does something brave, not only when it's necessary." },
-        voice: "Sarah, please don't only call when something is wrong. Call when something is right too.",
+        lastPersonalTouch: { date: "2026-04-14", text: "Brief gala chat, Marius asked Michael to call when the bank does something brave, not only when it's necessary." },
+        voice: "Michael, please don't only call when something is wrong. Call when something is right too.",
       },
     },
     portfolio: {
@@ -561,11 +561,11 @@ export const clients: Client[] = [
         { date: "2026-02-15", outlet: "NZZ", title: "Industrielle Automatisierung, eine neue Welle für Europa", sentiment: "Neutral", url: "#media-nzz-auto", summary: "Background for Eugen's recent automation question.", confidence: "Pattern" },
       ],
       crmTouchpoints: [
-        { date: "2026-05-12", channel: "Phone", direction: "In", subject: "Lisa, summer plans, no liquidity needs", outcome: "Quiet period through August", owner: "Sarah Meier", durationMin: 7 },
-        { date: "2026-04-14", channel: "In-Person", direction: "Out", subject: "Charity gala, brief interaction", outcome: "Eugen praised staples stability", owner: "Sarah Meier", durationMin: 10 },
-        { date: "2026-02-17", channel: "Phone", direction: "In", subject: "NZZ industrial automation piece", outcome: "Door opened to European automation, in familiar packaging", owner: "Sarah Meier", durationMin: 17 },
-        { date: "2026-01-15", channel: "Video Call", direction: "Out", subject: "Annual Strategy 2026", outcome: "Mandate locked, no rebalancing approved", owner: "Sarah Meier", durationMin: 55 },
-        { date: "2026-01-08", channel: "Phone", direction: "Out", subject: "Introductory call post-handover", outcome: "Eugen: expect the same quiet, global defensive approach", owner: "Sarah Meier", durationMin: 14 },
+        { date: "2026-05-12", channel: "Phone", direction: "In", subject: "Lisa, summer plans, no liquidity needs", outcome: "Quiet period through August", owner: "Michael Berger", durationMin: 7 },
+        { date: "2026-04-14", channel: "In-Person", direction: "Out", subject: "Charity gala, brief interaction", outcome: "Eugen praised staples stability", owner: "Michael Berger", durationMin: 10 },
+        { date: "2026-02-17", channel: "Phone", direction: "In", subject: "NZZ industrial automation piece", outcome: "Door opened to European automation, in familiar packaging", owner: "Michael Berger", durationMin: 17 },
+        { date: "2026-01-15", channel: "Video Call", direction: "Out", subject: "Annual Strategy 2026", outcome: "Mandate locked, no rebalancing approved", owner: "Michael Berger", durationMin: 55 },
+        { date: "2026-01-08", channel: "Phone", direction: "Out", subject: "Introductory call post-handover", outcome: "Eugen: expect the same quiet, global defensive approach", owner: "Michael Berger", durationMin: 14 },
       ],
       personal: {
         keyDates: [
@@ -722,10 +722,10 @@ export const clients: Client[] = [
         { date: "2026-04-08", outlet: "Bilanz", title: "Schweizer Detailhandel, die nächsten 5 Jahre", sentiment: "Positive", url: "#media-bilanz-retail", summary: "Julian's brand named as bellwether.", confidence: "Explicit" },
       ],
       crmTouchpoints: [
-        { date: "2026-06-12", channel: "Email", direction: "In", subject: "Request: updated correlation matrix, retail cluster", outcome: "Analyst desk producing report", owner: "Sarah Meier" },
-        { date: "2026-05-14", channel: "Email", direction: "In", subject: "Correlation matrix follow-up", outcome: "Scheduled for next briefing", owner: "Sarah Meier" },
-        { date: "2026-04-02", channel: "Phone", direction: "In", subject: "Brand under union scrutiny, asks about portfolio analogues", outcome: "Triggered reputation-screen review", owner: "Sarah Meier", durationMin: 14 },
-        { date: "2026-01-09", channel: "Phone", direction: "Out", subject: "Introductory call post-handover", outcome: "Julian expects analytical depth, not stories", owner: "Sarah Meier", durationMin: 21 },
+        { date: "2026-06-12", channel: "Email", direction: "In", subject: "Request: updated correlation matrix, retail cluster", outcome: "Analyst desk producing report", owner: "Michael Berger" },
+        { date: "2026-05-14", channel: "Email", direction: "In", subject: "Correlation matrix follow-up", outcome: "Scheduled for next briefing", owner: "Michael Berger" },
+        { date: "2026-04-02", channel: "Phone", direction: "In", subject: "Brand under union scrutiny, asks about portfolio analogues", outcome: "Triggered reputation-screen review", owner: "Michael Berger", durationMin: 14 },
+        { date: "2026-01-09", channel: "Phone", direction: "Out", subject: "Introductory call post-handover", outcome: "Julian expects analytical depth, not stories", owner: "Michael Berger", durationMin: 21 },
       ],
       personal: {
         keyDates: [
@@ -753,7 +753,7 @@ export const clients: Client[] = [
         ],
         giftNotes: "Avoid corporate gifts. A handwritten note after a notable public moment of his brand works well.",
         lastPersonalTouch: { date: "2026-04-08", text: "Sent a short note congratulating him on the Bilanz feature. He replied with a single line, but he replied." },
-        voice: "Sarah, my portfolio cannot be the headline that takes down my brand.",
+        voice: "Michael, my portfolio cannot be the headline that takes down my brand.",
       },
     },
     portfolio: {
@@ -1136,12 +1136,12 @@ export const recommendations: Recommendation[] = [
       style: "Values-driven",
       subject: "Pharma rotation aligned with your March request",
       message:
-        "Dear Hubertus,\n\nNovartis announced today that it is winding down two of its neurodegenerative programmes. This is exactly the situation you asked us to watch for in March. I would like to propose moving the full Novartis position into Roche, same sector, on the CIO Buy list, and with an active neurology + diagnostics pipeline.\n\nNo change to the overall strategy or risk profile. A short call when it suits you, I would rather walk you through this in person than send it cold.\n\nWith care,\nSarah",
+        "Dear Hubertus,\n\nNovartis announced today that it is winding down two of its neurodegenerative programmes. This is exactly the situation you asked us to watch for in March. I would like to propose moving the full Novartis position into Roche, same sector, on the CIO Buy list, and with an active neurology + diagnostics pipeline.\n\nNo change to the overall strategy or risk profile. A short call when it suits you, I would rather walk you through this in person than send it cold.\n\nWith care,\nMichael",
       variants: [
         { style: "Values-driven", label: "Warm, purpose-led", bestFor: ["Phone", "Email"],
           subject: "Pharma rotation aligned with your March request",
           message:
-            "Dear Hubertus,\n\nNovartis announced today that it is winding down two of its neurodegenerative programmes. This is exactly the situation you asked us to watch for in March. I would like to propose moving the full Novartis position into Roche, same sector, on the CIO Buy list, and with an active neurology + diagnostics pipeline.\n\nNo change to the overall strategy or risk profile. A short call when it suits you, I would rather walk you through this in person than send it cold.\n\nWith care,\nSarah" },
+            "Dear Hubertus,\n\nNovartis announced today that it is winding down two of its neurodegenerative programmes. This is exactly the situation you asked us to watch for in March. I would like to propose moving the full Novartis position into Roche, same sector, on the CIO Buy list, and with an active neurology + diagnostics pipeline.\n\nNo change to the overall strategy or risk profile. A short call when it suits you, I would rather walk you through this in person than send it cold.\n\nWith care,\nMichael" },
         { style: "Concise", label: "Short & factual", bestFor: ["WhatsApp", "Phone"],
           subject: "Novartis to Roche, neurology alignment",
           message: "Hubertus, Novartis just cut two neurology programmes. Proposing full rotation into Roche, same sector, CIO Buy. Aligned with the audit you asked for in March. Call when it suits you. Sarah." },
@@ -1211,7 +1211,7 @@ export const recommendations: Recommendation[] = [
       style: "Values-driven",
       subject: "Good news for once, Unilever just did the right thing",
       message:
-        "Dear Marius and Elena,\n\nA rare 'good news' call. Unilever, which you already hold in the staples sleeve, has cut all palm-oil suppliers tied to deforestation and committed CHF 280m to a Brazilian reforestation foundation. It overlaps directly with the Stiftung's Atlantic Forest work.\n\nThe CIO has lifted Unilever to Buy on the back of this. I would like to propose adding a small overweight (1.3%) within the existing staples sleeve, fully inside your Defensive bands. Happy to call you on Wednesday morning to walk through it.\n\nWith genuine pleasure,\nSarah",
+        "Dear Marius and Elena,\n\nA rare 'good news' call. Unilever, which you already hold in the staples sleeve, has cut all palm-oil suppliers tied to deforestation and committed CHF 280m to a Brazilian reforestation foundation. It overlaps directly with the Stiftung's Atlantic Forest work.\n\nThe CIO has lifted Unilever to Buy on the back of this. I would like to propose adding a small overweight (1.3%) within the existing staples sleeve, fully inside your Defensive bands. Happy to call you on Wednesday morning to walk through it.\n\nWith genuine pleasure,\nMichael",
       variants: [
         { style: "Narrative-first", label: "Story-led, warm", bestFor: ["Phone", "In-Person"],
           subject: "A 'good news' call, Unilever and the Atlantic Forest",
@@ -1283,11 +1283,11 @@ export const recommendations: Recommendation[] = [
       style: "Risk-sensitive",
       subject: "The CIO update, and what we recommend for you specifically",
       message:
-        "Sehr geehrter Herr Räber,\n\nthe bank's CIO desk issued a tactical update last month recommending a rotation out of Nestlé and Novartis into US technology names. This does not match what you and Mrs. Räber have asked of us, and we will not implement it as written.\n\nWe would like to propose, instead, a small (+2%) tilt into Schindler and Siemens, two European industrial-automation names already on the CIO Buy list, with stable dividend records. This honours the structural trend without crossing the boundaries you set.\n\nI will call you on Wednesday at 10:30 to walk you through, and confirm in writing the same afternoon.\n\nMit freundlichen Grüssen,\nSarah Meier",
+        "Sehr geehrter Herr Räber,\n\nthe bank's CIO desk issued a tactical update last month recommending a rotation out of Nestlé and Novartis into US technology names. This does not match what you and Mrs. Räber have asked of us, and we will not implement it as written.\n\nWe would like to propose, instead, a small (+2%) tilt into Schindler and Siemens, two European industrial-automation names already on the CIO Buy list, with stable dividend records. This honours the structural trend without crossing the boundaries you set.\n\nI will call you on Wednesday at 10:30 to walk you through, and confirm in writing the same afternoon.\n\nMit freundlichen Grüssen,\nMichael Berger",
       variants: [
         { style: "Risk-sensitive", label: "Formal, mandate-led", bestFor: ["Phone", "Email"],
           subject: "The CIO update, and what we recommend for you specifically",
-          message: "Sehr geehrter Herr Räber, the bank's CIO recommended a rotation we will not implement for you, it would breach your stated boundaries. We propose instead a small +2% Schindler / Siemens tilt in European industrial automation. Phone call Wednesday 10:30 CET, written confirmation same day. Mit freundlichen Grüssen, Sarah Meier." },
+          message: "Sehr geehrter Herr Räber, the bank's CIO recommended a rotation we will not implement for you, it would breach your stated boundaries. We propose instead a small +2% Schindler / Siemens tilt in European industrial automation. Phone call Wednesday 10:30 CET, written confirmation same day. Mit freundlichen Grüssen, Michael Berger." },
       ],
     },
   },
@@ -1355,7 +1355,7 @@ export const recommendations: Recommendation[] = [
       style: "Numbers-first",
       subject: "Mandate breach, AMZN, substitution proposal attached",
       message:
-        "Dear Julian,\n\nan investigative report published this morning into Amazon's EU warehouse-labour practices triggers your mandate exclusion. We propose:\n\n— Exit AMZN, full 5.4%.\n— Add 3.0% to Costco (governance peer, already held), bringing it to 7.1%.\n— Add 2.4% to Richemont (Swiss, CIO Buy), bringing it to 6.2%.\n\nNet portfolio vol −0.4%, expected 12m return roughly neutral, reputation-screen breach closed. Full backing pack attached. Approve to execute at next open.\n\nBest,\nSarah Meier",
+        "Dear Julian,\n\nan investigative report published this morning into Amazon's EU warehouse-labour practices triggers your mandate exclusion. We propose:\n\n— Exit AMZN, full 5.4%.\n— Add 3.0% to Costco (governance peer, already held), bringing it to 7.1%.\n— Add 2.4% to Richemont (Swiss, CIO Buy), bringing it to 6.2%.\n\nNet portfolio vol −0.4%, expected 12m return roughly neutral, reputation-screen breach closed. Full backing pack attached. Approve to execute at next open.\n\nBest,\nMichael Berger",
       variants: [
         { style: "Numbers-first", label: "Email, executive", bestFor: ["Email"],
           subject: "Mandate breach, AMZN, substitution proposal attached",

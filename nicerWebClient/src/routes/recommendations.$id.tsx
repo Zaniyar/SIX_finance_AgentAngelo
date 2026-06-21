@@ -546,7 +546,7 @@ function RecommendationDetail() {
               )}
               {idx === pooledRecs.length - 1 && (
                 <div className="mt-6">
-                  <Section title="Compliance & regulatory" icon={<Shield className="w-4 h-4" />}>
+                  <Section title="Policy Engine · Regulatory & Compliance" icon={<Shield className="w-4 h-4" />}>
                     <div className="grid grid-cols-3 gap-4">
                       <CheckRow ok={r.compliance.mandateOk} label="Mandate fit" />
                       <CheckRow ok={r.compliance.suitabilityOk} label="Suitability" />
@@ -784,7 +784,7 @@ function RecommendationDetail() {
               )}
 
               {idx === pooledRecs.length - 1 && showWidget("compliance") && (
-                <Section id={`${r.id}-compliance`} title="Compliance & regulatory" icon={<Shield />} accent="trust" bento="square" {...widgetTileProps("compliance")}>
+                <Section id={`${r.id}-compliance`} title="Policy Engine · Regulatory & Compliance" icon={<Shield />} accent="trust" bento="square" {...widgetTileProps("compliance")}>
                   <div className="grid grid-cols-3 gap-4">
                     <CheckRow ok={r.compliance.mandateOk} label="Mandate fit" />
                     <CheckRow ok={r.compliance.suitabilityOk} label="Suitability" />
@@ -824,7 +824,7 @@ function RecommendationDetail() {
     const baseMessage = isPooling
       ? `Dear ${client.name.split(" ")[0]},\n\nA short note covering ${pooledRecs.length} actions I'd like your nod on:\n\n` +
         pooledRecs.map((r, i) => `${i + 1}. ${r.title}\n   ${r.advised}`).join("\n\n") +
-        `\n\nNeither changes your overall strategy or risk profile. Happy to walk you through both on a short call.\n\n- Sarah`
+        `\n\nNeither changes your overall strategy or risk profile. Happy to walk you through both on a short call.\n\n- Michael`
       : variants[variantIdx].message;
 
     // If arriving from Copilot, prepend the AI context as a note
@@ -1140,7 +1140,7 @@ function RecommendationDetail() {
               </div>
             </Section>
             <Section title="Holdings" subtitle="Reference & market data via SIX MCP">
-              <div className="border border-border rounded overflow-hidden">
+              <div className="border border-border rounded overflow-hidden overflow-x-auto">
                 <div className="grid grid-cols-[1fr_150px_90px_110px_70px_30px] gap-3 px-4 py-2 bg-secondary/40 text-[10px] uppercase tracking-wider text-muted-foreground"><div>Instrument</div><div>ISIN / Valor</div><div>Venue</div><div className="text-right">Last px</div><div className="text-right">Weight</div><div /></div>
                 {client.portfolio.holdings.map((h) => { const link = h.alert ? alertLinkFor(h.ticker) : null; const dayColor = h.lastPrice?.pctDay == null ? "text-muted-foreground" : h.lastPrice.pctDay > 0 ? "text-positive" : h.lastPrice.pctDay < 0 ? "text-destructive" : "text-muted-foreground"; return (
                   <div key={h.ticker} className="grid grid-cols-[1fr_150px_90px_110px_70px_30px] gap-3 px-4 py-3 border-t border-border text-sm items-center">
@@ -1324,7 +1324,7 @@ function RecommendationDetail() {
 
         {showWidget("portfolio-holdings") && (
         <Section id="portfolio-holdings" title="Holdings" subtitle="Live via SIX MCP" icon={<Briefcase />} accent="evidence" bento="square" {...widgetTileProps("portfolio-holdings")}>
-            <div className="border border-border rounded overflow-hidden">
+            <div className="border border-border rounded overflow-hidden overflow-x-auto">
               <div className="grid grid-cols-[1fr_150px_90px_110px_70px_30px] gap-3 px-4 py-2 bg-secondary/40 text-[10px] uppercase tracking-wider text-muted-foreground">
                 <div>Instrument</div>
                 <div>ISIN / Valor</div>
@@ -1384,9 +1384,9 @@ function RecommendationDetail() {
                   </div>
                 );
               })}
-              <div className="px-4 py-2 border-t border-border bg-secondary/20 text-[10px] text-muted-foreground flex items-center gap-2">
-                <Sparkles className="w-3 h-3" />
-                Identifiers and prices resolved live via SIX MCP (find_instrument → symbology → listings → market_data).
+              <div className="px-4 py-2 border-t border-border bg-secondary/20 text-[10px] text-muted-foreground flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2"><Sparkles className="w-3 h-3" />Identifiers and prices resolved live via SIX MCP.</span>
+                <img src="https://upload.wikimedia.org/wikipedia/commons/9/9e/SIX_Group_logo.svg" alt="SIX" className="h-3 w-auto opacity-60" />
               </div>
             </div>
           </Section>

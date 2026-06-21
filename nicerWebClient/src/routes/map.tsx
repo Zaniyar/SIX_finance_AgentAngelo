@@ -311,6 +311,8 @@ function WorldMap() {
         });
         root.addEventListener("click", () => { setActive(c.id); updateMarkerPx(c.id); });
 
+        // Alert/opportunity clients get higher z-index so they appear above monitor clients
+        root.style.zIndex = c.direction !== "none" ? "20" : "1";
         const marker = new maplibregl.Marker({ element: root, anchor: "center" })
           .setLngLat(coords).addTo(map);
 
