@@ -480,13 +480,29 @@ router.post("/recommendation-chat", async (req: Request, res: Response) => {
     liveData.sixPrices = prices;
   }
 
+  const ui = parsed.ui as { activeTab?: string } | undefined;
+  const activeTab = ui?.activeTab ?? "reco";
+
+  const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
+  const isSelectionAsk = lastUser.includes("[Ask AI · selection]");
+
+  const styleBlock = isSelectionAsk
+    ? `## Response style (mandatory for this message)\n` +
+      `- **Maximum 4 short sentences (~80 words).** Write like you're whispering a tip to Sarah at the desk, not drafting a report.\n` +
+      `- No markdown tables, no ## headers, no numbered checklists, no "Point | Why it matters" layouts.\n` +
+      `- One clear takeaway + one concrete next step. That's it.\n` +
+      `- Warm and direct — use the client's first name once if natural.\n\n`
+    : `## Response style\n` +
+      `- Default: **under 120 words** unless the RM explicitly asks for detail.\n` +
+      `- Conversational and human — colleague over coffee, not compliance memo.\n` +
+      `- No tables. At most 3 short bullets if truly needed. Skip ## section headers for simple questions.\n\n`;
+
   const system =
     `You are the Client Context Assistant for Sarah Meier, a Relationship Manager at a Swiss private bank.\n` +
-    `You are embedded on a single client's recommendation page. Answer ONLY about this client and the open recommendation(s) in the provided context.\n\n` +
-    `You have read access to the full recommendation brief:\n` +
-    `- Proposed action, Why this matters, Storyline & evidence\n` +
-    `- AI confidence, What could go wrong, Alternatives considered\n` +
-    `- The human spark, Business value for the bank, Compliance & regulatory\n\n` +
+    `You are embedded on a single client's page (active tab: ${activeTab}). Answer ONLY about this client and the data in the provided context.\n` +
+    `The RM may highlight text and ask via "Ask AI" (messages tagged [Ask AI · selection]) — answer ONLY about that quoted text.\n\n` +
+    styleBlock +
+    `You have read access to the full recommendation brief, portfolio, and client DNA in CONTEXT JSON.\n` +
     `Live integrations (use when relevant — data is appended below):\n` +
     `- **Phoeniqs LLM** — you are running on this\n` +
     `- **SIX MCP** — live prices for flagged holdings when available in LIVE DATA\n` +
@@ -494,9 +510,7 @@ router.post("/recommendation-chat", async (req: Request, res: Response) => {
     `Rules:\n` +
     `- Ground every answer in CONTEXT JSON or LIVE DATA. Never invent holdings, prices, or regulatory facts.\n` +
     `- Prefer the client's preferred channel (${(client as { preferredChannel?: string })?.preferredChannel ?? "see context"}) and DNA when suggesting outreach.\n` +
-    `- Use markdown: **bold** for key figures, bullets for lists, ## for sections.\n` +
-    `- If asked something outside this client or missing from data, say what is unknown and what you'd need.\n` +
-    `- Keep answers concise and RM-actionable.\n\n` +
+    `- If asked something outside this client or missing from data, say briefly what's unknown.\n\n` +
     `# CONTEXT (JSON)\n${JSON.stringify(parsed)}\n\n` +
     `# LIVE DATA (integrations)\n${JSON.stringify(liveData)}`;
 
@@ -508,7 +522,10 @@ router.post("/recommendation-chat", async (req: Request, res: Response) => {
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders();
 
-    const reply = await phoeniqs.chat(fullMessages, { temperature: 0.35, maxTokens: 2500 });
+    const reply = await phoeniqs.chat(fullMessages, {
+      temperature: 0.35,
+      maxTokens: isSelectionAsk ? 220 : 900,
+    });
     res.write(`data: ${JSON.stringify({ reply })}\n\n`);
     res.end();
   } catch (error) {
@@ -517,12 +534,94 @@ router.post("/recommendation-chat", async (req: Request, res: Response) => {
   }
 });
 
+// ── POST /api/tts — ElevenLabs TTS proxy (streams audio/mpeg back) ───────────
+router.post("/tts", async (req: Request, res: Response) => {
+  const { text, voiceId } = req.body as { text?: string; voiceId?: string };
+  if (!text) return fail(res, new Error("text required"), 400);
+
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) return fail(res, new Error("ELEVENLABS_API_KEY not set"), 503);
+
+  const vid = voiceId ?? process.env.ELEVENLABS_VOICE_ID ?? "IKne3meq5aSn9XLyUdCD";
+
+  try {
+    const upstream = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${vid}`, {
+      method: "POST",
+      headers: {
+        "xi-api-key": apiKey,
+        "Content-Type": "application/json",
+        "Accept": "audio/mpeg",
+      },
+      body: JSON.stringify({
+        text,
+        model_id: "eleven_turbo_v2_5",
+        voice_settings: { stability: 0.45, similarity_boost: 0.82, style: 0.3, use_speaker_boost: true },
+      }),
+    });
+    if (!upstream.ok) {
+      const err = await upstream.text();
+      return fail(res, new Error(`ElevenLabs ${upstream.status}: ${err}`), upstream.status);
+    }
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Cache-Control", "no-cache");
+    // Pipe stream directly to client
+    const reader = upstream.body!.getReader();
+    const pump = async () => {
+      const { done, value } = await reader.read();
+      if (done) { res.end(); return; }
+      res.write(value);
+      await pump();
+    };
+    await pump();
+  } catch (error) { fail(res, error); }
+});
+
 // ── GET /api/integrations (alias: /api/health/integrations) ──────────────────
 router.get(["/integrations", "/health/integrations"], async (_req, res) => {
   try {
     const probes = await Promise.all([six.ping(), news.ping(), phoeniqs.ping()]);
     ok(res, { probes });
   } catch (error) { fail(res, error); }
+});
+
+// ── Agent Angelo Proactive Call Endpoints ─────────────────────────────────────
+import { triggerCall, getLastCall, getCallById, getAudioPath } from "../services/proactive-call.service";
+
+// POST /api/calls/trigger — manual trigger from dashboard
+router.post("/calls/trigger", async (req: Request, res: Response) => {
+  const { client_id, alert_id } = req.body as { client_id?: string; alert_id?: string };
+  if (!client_id) return fail(res, new Error("client_id required"), 400);
+
+  // Use alert_id if provided, else fallback to first alert for this client
+  const alertId = alert_id ?? `alert-${client_id}-1`;
+
+  try {
+    // Non-blocking: return immediately after queuing; call happens in background
+    triggerCall(client_id, alertId, phoeniqs).catch(console.error);
+    ok(res, { message: "Call queued — Angelo is preparing your briefing.", callId: alertId });
+  } catch (error) { fail(res, error); }
+});
+
+// GET /api/calls/status — poll last call status
+router.get("/calls/status", (_req, res) => {
+  const record = getLastCall();
+  if (!record) return ok(res, { status: "idle" });
+  ok(res, record);
+});
+
+// GET /api/calls/status/:callId — poll specific call
+router.get("/calls/status/:callId", (req, res) => {
+  const record = getCallById(req.params.callId);
+  if (!record) return fail(res, new Error("Call not found"), 404);
+  ok(res, record);
+});
+
+// GET /api/calls/audio/:callId — serve MP3 for Twilio to play
+router.get("/calls/audio/:callId", (req, res) => {
+  const audioPath = getAudioPath(req.params.callId);
+  if (!require("fs").existsSync(audioPath)) return fail(res, new Error("Audio not ready"), 404);
+  res.setHeader("Content-Type", "audio/mpeg");
+  res.sendFile(audioPath);
 });
 
 export default router;

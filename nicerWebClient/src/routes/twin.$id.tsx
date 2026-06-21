@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import TwinScene, { xrStore } from "@/three/TwinScene";
-import { WebSpeechDriver, AudioFileDriver } from "@/three/lipsync";
+import { AudioFileDriver } from "@/three/lipsync";
 import { api, ClientSummary, ClientDetail } from "@/lib/api";
+
+const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:3001";
 
 export const Route = createFileRoute("/twin/$id")({
   // WebGL / Three.js cannot run during SSR without losing the GPU context on hydrate.
@@ -21,8 +23,6 @@ const CLIENT_AVATAR_GLB: Record<string, string> = {
   ammann: "/avatars/twin_female_casual.glb",
 };
 
-const TEST_AUDIO_URL = "/ElevenLabs_Text_to_Speech_audio.mp3";
-
 interface Msg { role: "user" | "assistant"; content: string; }
 
 const SUGGESTIONS = [
@@ -37,6 +37,20 @@ const TONE_LABELS: Record<string, string> = {
   "relationship-led": "Relationship-Led",
 };
 
+// Speak text via ElevenLabs backend proxy, drive lipsync via AudioFileDriver
+async function speakElevenLabs(text: string, audioDriver: AudioFileDriver): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/tts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) throw new Error(`TTS error ${res.status}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  await audioDriver.playFile(url);
+  URL.revokeObjectURL(url);
+}
+
 function TwinChat() {
   const { id } = Route.useParams();
   const [client, setClient] = useState<ClientSummary | null>(null);
@@ -45,11 +59,11 @@ function TwinChat() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [speaking, setSpeaking] = useState(false);
-  const [testPlaying, setTestPlaying] = useState(false);
+  const [listening, setListening] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [arSupported, setArSupported] = useState(false);
-  const driver = useRef(new WebSpeechDriver());
   const audioDriver = useRef(new AudioFileDriver());
+  const recognitionRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,7 +77,7 @@ function TwinChat() {
   useEffect(() => { api.clients().then((cs) => setClient(cs.find(c => c.id === id) ?? null)); }, [id]);
   useEffect(() => { api.client(id).then(setDetail).catch(() => {}); }, [id]);
   useEffect(() => { scrollRef.current?.scrollTo({ top: 1e6, behavior: "smooth" }); }, [messages, busy]);
-  useEffect(() => () => { driver.current.stop(); audioDriver.current.stop(); }, []);
+  useEffect(() => () => { audioDriver.current.stop(); recognitionRef.current?.stop(); }, []);
 
   async function send(text: string) {
     const q = text.trim();
@@ -78,7 +92,7 @@ function TwinChat() {
       setMessages(m => [...m, { role: "assistant", content: reply }]);
       setBusy(false);
       setSpeaking(true);
-      await driver.current.speak(reply);
+      await speakElevenLabs(reply, audioDriver.current);
     } catch (e) {
       setErr((e as Error).message);
       setBusy(false);
@@ -87,7 +101,35 @@ function TwinChat() {
     }
   }
 
-  const status = busy ? "Thinking…" : speaking ? "Speaking" : "Listening";
+  const toggleMic = useCallback(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) { setErr("Speech recognition not supported in this browser."); return; }
+
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+
+    const rec = new SpeechRecognition();
+    rec.lang = "en-US";
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    recognitionRef.current = rec;
+
+    rec.onresult = (e: any) => {
+      const transcript = e.results[0][0].transcript;
+      setListening(false);
+      send(transcript);
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => setListening(false);
+
+    rec.start();
+    setListening(true);
+  }, [listening, busy]);
+
+  const status = busy ? "Thinking…" : speaking ? "Speaking" : listening ? "Listening…" : "Ready";
 
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: "var(--font-sans, 'Inter', sans-serif)" }}>
@@ -102,8 +144,8 @@ function TwinChat() {
         {/* 3D stage */}
         <div style={{ position: "relative", background: "radial-gradient(120% 90% at 50% 10%, #1b1f2a 0%, #0b0c0f 60%)" }}>
           <TwinScene
-            driver={testPlaying ? audioDriver.current : driver.current}
-            speaking={speaking || testPlaying}
+            driver={audioDriver.current}
+            speaking={speaking}
             avatarUrl={client?.avatarUrl ?? CLIENT_AVATAR_GLB[id]}
           />
 
@@ -131,17 +173,18 @@ function TwinChat() {
             </div>
           </div>
 
-          <button
-            onClick={async () => {
-              if (testPlaying) { audioDriver.current.stop(); setTestPlaying(false); return; }
-              setTestPlaying(true);
-              await audioDriver.current.playFile(TEST_AUDIO_URL);
-              setTestPlaying(false);
-            }}
-            style={{ position: "absolute", bottom: 18, left: 24, fontSize: 10, color: testPlaying ? "#22c55e" : "rgba(255,255,255,0.3)", background: "none", border: "none", cursor: "pointer", fontFamily: "monospace", letterSpacing: "0.06em" }}
+          {/* Mic button */}
+          <motion.button
+            onClick={toggleMic}
+            disabled={busy || speaking}
+            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.94 }}
+            animate={listening ? { boxShadow: ["0 0 0px #ef4444", "0 0 16px #ef4444", "0 0 0px #ef4444"] } : {}}
+            transition={listening ? { duration: 1.2, repeat: Infinity } : {}}
+            style={{ position: "absolute", bottom: 18, left: 24, display: "flex", alignItems: "center", gap: 7, padding: "7px 14px", background: listening ? "rgba(239,68,68,0.18)" : "rgba(255,255,255,0.07)", border: `1px solid ${listening ? "#ef4444" : "rgba(255,255,255,0.18)"}`, color: listening ? "#ef4444" : "rgba(255,255,255,0.6)", cursor: busy || speaking ? "not-allowed" : "pointer", fontSize: 11, fontFamily: "monospace", letterSpacing: "0.06em", borderRadius: 99, opacity: busy || speaking ? 0.4 : 1 }}
           >
-            {testPlaying ? "◼ stop lipsync test" : "▶ test lipsync (ElevenLabs)"}
-          </button>
+            <span style={{ fontSize: 14 }}>{listening ? "◼" : "🎙"}</span>
+            {listening ? "stop" : "speak"}
+          </motion.button>
           <div style={{ position: "absolute", bottom: 18, right: 24, fontSize: 10, color: "rgba(255,255,255,0.25)", fontFamily: "monospace" }}>drag to orbit</div>
 
           <AnimatePresence>
@@ -175,10 +218,19 @@ function TwinChat() {
             {err && <div style={{ fontSize: 12, color: "#dc2626", padding: 12, border: "1px dashed #dc2626", borderRadius: 4 }}>{err}</div>}
           </div>
 
-          <form style={{ display: "flex", gap: 10, padding: 16, background: "var(--secondary, #f9fafb)", borderTop: "1px solid var(--border, #e5e7eb)" }}
+          <form style={{ display: "flex", gap: 8, padding: 16, background: "var(--secondary, #f9fafb)", borderTop: "1px solid var(--border, #e5e7eb)" }}
             onSubmit={e => { e.preventDefault(); send(input); }}>
+            {/* Inline mic button */}
+            <motion.button type="button" onClick={toggleMic} disabled={busy || speaking}
+              animate={listening ? { boxShadow: ["0 0 0px #ef4444", "0 0 10px #ef4444", "0 0 0px #ef4444"] } : {}}
+              transition={listening ? { duration: 1.2, repeat: Infinity } : {}}
+              style={{ padding: "0 14px", border: `1px solid ${listening ? "#ef4444" : "var(--border, #e5e7eb)"}`, borderRadius: 4, background: listening ? "#fef2f2" : "var(--background, #fff)", color: listening ? "#ef4444" : "var(--muted-foreground, #888)", fontSize: 16, cursor: busy || speaking ? "not-allowed" : "pointer", opacity: busy || speaking ? 0.4 : 1, flexShrink: 0 }}
+              title={listening ? "Stop recording" : "Speak to twin"}
+            >
+              {listening ? "◼" : "🎙"}
+            </motion.button>
             <input value={input} onChange={e => setInput(e.target.value)}
-              placeholder="Say something to the twin…"
+              placeholder={listening ? "Listening…" : "Type or speak to the twin…"}
               style={{ flex: 1, padding: "12px 14px", border: "1px solid var(--border, #e5e7eb)", borderRadius: 4, fontSize: 14, fontFamily: "inherit", background: "var(--background, #fff)" }} />
             <button type="submit" disabled={busy || !input.trim()}
               style={{ padding: "12px 20px", background: "#111", color: "#fff", border: "none", borderRadius: 4, fontSize: 13, fontWeight: 600, cursor: busy || !input.trim() ? "not-allowed" : "pointer", opacity: busy || !input.trim() ? 0.5 : 1 }}>

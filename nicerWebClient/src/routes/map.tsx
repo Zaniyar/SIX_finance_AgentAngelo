@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { api, ClientSummary, HighlightGroup } from "@/lib/api";
+import { AngeloCallButton } from "@/components/AngeloCallButton";
 import { clients as mockClients } from "@/lib/mock-data";
 import schneiderAvatar from "@/assets/client-schneider.jpg";
 import huberAvatar from "@/assets/client-huber.jpg";
@@ -611,6 +612,16 @@ function ClientMapCard({ client: c, onOpen, onTwin }: { client: MapClient; onOpe
           </motion.button>
         )}
       </div>
+
+      {c.isReal && c.direction !== "none" && (
+        <div style={{ padding: "0 10px 10px" }}>
+          <AngeloCallButton
+            clientId={c.id}
+            clientName={c.displayName}
+            className="w-full"
+          />
+        </div>
+      )}
     </>
   );
 }

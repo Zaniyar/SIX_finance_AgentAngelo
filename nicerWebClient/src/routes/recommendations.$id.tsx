@@ -1,7 +1,5 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState, useEffect, useCallback, useContext, createContext, useLayoutEffect, useRef, type ReactNode } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { useMemo, useState, useEffect, useCallback, useContext, createContext, useLayoutEffect, type ReactNode } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -22,13 +20,15 @@ import {
   Check, X, ArrowLeft, MessageSquare, Phone, Mail, Smartphone, UserCheck, Clock, AlertTriangle,
   FileText, Shield, Sparkles, ExternalLink, ChevronRight, ChevronLeft, ChevronDown, Layers, Star, Users, Briefcase, Scale,
   Compass, ShieldAlert, ThumbsUp, ThumbsDown, Trash2, Heart, Cake, Quote, Gift, Newspaper, PhoneCall, ArrowDownLeft, ArrowUpRight,
-  Settings2, Eye, EyeOff, Bot, Send,
+  LayoutGrid, Infinity, Settings2, Eye, EyeOff,
 } from "lucide-react";
+import { AngeloCallButton } from "@/components/AngeloCallButton";
+import { ClientDnaBoard } from "@/components/client-dna-board";
+import { ClientContextChat } from "@/components/client-context-chat";
+import { ClientPageChatProvider, type ClientPageTab } from "@/components/client-page-chat-context";
+import { AskAiSelectionMenu } from "@/components/ask-ai-selection-menu";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { buildRecommendationChatContext } from "@/lib/recommendation-context";
-import { readChatStreamReply } from "@/lib/chat-stream";
-import { api, type IntegrationProbe } from "@/lib/api";
 import type { Client, Recommendation } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/recommendations/$id")({
@@ -79,7 +79,7 @@ function RecommendationDetail() {
     : getRecommendation(id);
   const client = getClient(isClientOnly ? id : rec.clientId);
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"reco" | "portfolio" | "dna">(isClientOnly ? "dna" : "reco");
+  const [tab, setTab] = useState<ClientPageTab>(isClientOnly ? "dna" : "reco");
 
   const allRecs = getRecsForClient(client.id);
   const otherRecs = allRecs.filter((r) => r.id !== rec.id);
@@ -92,6 +92,33 @@ function RecommendationDetail() {
     [rec, otherRecs, pooled],
   );
   const isPooling = pooledRecs.length > 1;
+
+  const chatRecs = useMemo(
+    () => (tab === "reco" ? pooledRecs : allRecs),
+    [tab, pooledRecs, allRecs],
+  );
+
+  const chatSidebar = (
+    <aside className="col-span-12 space-y-4 xl:col-span-4 xl:sticky xl:top-24">
+      {tab === "reco" && !isClientOnly && (
+        <MessageStudio copilotDraft={copilotDraft} copilotSource={copilotSource} />
+      )}
+      <div data-ask-ai-ignore>
+        <ClientContextChat />
+      </div>
+    </aside>
+  );
+
+  const tabContent = (
+    <div className="grid grid-cols-12 items-start gap-4">
+      <div className="col-span-12 xl:col-span-8">
+        {tab === "reco" && !isClientOnly && <RecoTab />}
+        {tab === "portfolio" && <PortfolioTab />}
+        {tab === "dna" && <DnaTab />}
+      </div>
+      {chatSidebar}
+    </div>
+  );
 
   // Discard dialog
   const [discardOpen, setDiscardOpen] = useState(false);
@@ -106,7 +133,9 @@ function RecommendationDetail() {
   // Client-only mode: no rec selected, show DNA + Portfolio.
   if (isClientOnly) {
     return (
-      <AppShell breadcrumbs={[{ label: "Dashboard", to: "/" }, { label: "Clients", to: "/clients" }, { label: client.name }]}>
+      <ClientPageChatProvider client={client} recs={allRecs} activeTab={tab}>
+        <AskAiSelectionMenu />
+        <AppShell breadcrumbs={[{ label: "Dashboard", to: "/" }, { label: "Clients", to: "/clients" }, { label: client.name }]}>
         <div className="flex items-start justify-between mb-6 gap-6">
           <div className="flex items-start gap-4 min-w-0">
             {client.avatar ? (
@@ -170,16 +199,18 @@ function RecommendationDetail() {
           </div>
         </div>
 
-        {tab === "portfolio" && <PortfolioTab />}
-        {tab === "dna" && <DnaTab />}
-      </AppShell>
+        {tabContent}
+        </AppShell>
+      </ClientPageChatProvider>
     );
   }
 
 
 
   return (
-    <AppShell breadcrumbs={[{ label: "Dashboard", to: "/" }, { label: client.name }, { label: "Actions" }]}>
+    <ClientPageChatProvider client={client} recs={chatRecs} activeTab={tab}>
+      <AskAiSelectionMenu />
+      <AppShell breadcrumbs={[{ label: "Dashboard", to: "/" }, { label: client.name }, { label: "Actions" }]}>
       <div className="flex items-start justify-between mb-6 gap-6">
         <div className="flex items-start gap-4 min-w-0">
           {client.avatar ? (
@@ -353,95 +384,33 @@ function RecommendationDetail() {
         </div>
       </div>
 
-      {tab === "reco" && <RecoTab />}
-      {tab === "portfolio" && <PortfolioTab />}
-      {tab === "dna" && <DnaTab />}
+      {tabContent}
     </AppShell>
+    </ClientPageChatProvider>
   );
 
   function RecoTab() {
     type RecoWidgetKey = "proposed" | "why" | "storyline" | "confidence" | "risks" | "alternatives" | "human" | "business" | "compliance";
-    const RECO_WIDGET_STORAGE_KEY = "aura-reco-widget-visibility";
+    const { hiddenWidgets, editingWidgets, setEditingWidgets, widgetTileProps, showWidget } =
+      useBentoWidgetVisibility<RecoWidgetKey>("aura-reco-widget-visibility");
 
-    const readHiddenWidgets = (): Set<RecoWidgetKey> => {
-      try {
-        const raw = localStorage.getItem(RECO_WIDGET_STORAGE_KEY);
-        if (!raw) return new Set();
-        const parsed = JSON.parse(raw) as { hidden?: RecoWidgetKey[] };
-        return new Set(parsed.hidden ?? []);
-      } catch {
-        return new Set();
-      }
-    };
-
-    const writeHiddenWidgets = (hidden: Set<RecoWidgetKey>) => {
-      localStorage.setItem(RECO_WIDGET_STORAGE_KEY, JSON.stringify({ hidden: [...hidden] }));
-    };
-
-    const [hiddenWidgets, setHiddenWidgets] = useState<Set<RecoWidgetKey>>(readHiddenWidgets);
-    const [editingWidgets, setEditingWidgets] = useState(false);
-
-    const isWidgetVisible = (key: RecoWidgetKey) => !hiddenWidgets.has(key);
-
-    const toggleWidgetVisibility = (key: RecoWidgetKey) => {
-      setHiddenWidgets((prev) => {
-        const next = new Set(prev);
-        if (next.has(key)) next.delete(key);
-        else next.add(key);
-        writeHiddenWidgets(next);
-        return next;
-      });
-    };
-
-    const widgetTileProps = (key: RecoWidgetKey) => ({
-      editMode: editingWidgets,
-      widgetHidden: !isWidgetVisible(key),
-      onVisibilityToggle: () => toggleWidgetVisibility(key),
-    });
-
-    const showWidget = (key: RecoWidgetKey) => editingWidgets || isWidgetVisible(key);
+    const resolveRecoPanelIds = useCallback(
+      (key: string) => pooledRecs.map((r) => `${r.id}-${key}`),
+      [pooledRecs],
+    );
 
     return (
       <BentoBoard>
         <HiddenWidgetPanelCloser
           editingWidgets={editingWidgets}
           hiddenWidgets={hiddenWidgets}
-          recIds={pooledRecs.map((r) => r.id)}
+          resolvePanelIds={resolveRecoPanelIds}
         />
-        <div className="grid grid-cols-12 items-start gap-4">
-          <div className="col-span-12 space-y-3 xl:col-span-8">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-                  {editingWidgets ? "Tap tiles to show or hide" : "Your insight tiles"}
-                </div>
-                {editingWidgets && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Faded tiles are hidden on your dashboard. Saved for your next visit.
-                  </p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditingWidgets((on) => !on)}
-                className={cn(
-                  "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition",
-                  editingWidgets
-                    ? "border-accent bg-accent text-accent-foreground"
-                    : "border-border bg-surface text-muted-foreground hover:border-accent/30 hover:text-foreground",
-                )}
-              >
-                {editingWidgets ? (
-                  <>
-                    <Check className="h-3.5 w-3.5" /> Done
-                  </>
-                ) : (
-                  <>
-                    <Settings2 className="h-3.5 w-3.5" /> Customize
-                  </>
-                )}
-              </button>
-            </div>
+        <div className="space-y-3">
+            <WidgetCustomizeHeader
+              editingWidgets={editingWidgets}
+              onToggleEdit={() => setEditingWidgets((on) => !on)}
+            />
 
             {pooledRecs.map((r, idx) => (
               <div key={r.id}>
@@ -673,14 +642,6 @@ function RecommendationDetail() {
               </div>
             ))}
           </div>
-
-          <aside className="col-span-12 xl:col-span-4">
-            <div className="space-y-4 xl:sticky xl:top-24">
-              <MessageStudio copilotDraft={copilotDraft} copilotSource={copilotSource} />
-              <ClientContextChat client={client} pooledRecs={pooledRecs} />
-            </div>
-          </aside>
-        </div>
       </BentoBoard>
     );
   }
@@ -889,225 +850,15 @@ function RecommendationDetail() {
             {overridden && <span className="block text-accent mt-1">Overriding AI suggestion ({rec.outreach.channel}).</span>}
           </div>
 
+          <AngeloCallButton
+            clientId={client.id}
+            clientName={client.name}
+            className="w-full"
+          />
+
           <button className="w-full px-4 py-2.5 text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 transition flex items-center justify-center gap-2">
             <MessageSquare className="w-4 h-4" /> Approve via {channel}
           </button>
-        </div>
-      </CollapsibleCard>
-    );
-  }
-
-  function ClientContextChat({ client, pooledRecs }: { client: Client; pooledRecs: Recommendation[] }) {
-    type ChatMsg = { role: "user" | "assistant"; content: string };
-    const chatContext = useMemo(() => buildRecommendationChatContext(client, pooledRecs), [client, pooledRecs]);
-    const [messages, setMessages] = useState<ChatMsg[]>([]);
-    const [input, setInput] = useState("");
-    const [busy, setBusy] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [probes, setProbes] = useState<IntegrationProbe[]>([]);
-    const scrollerRef = useRef<HTMLDivElement>(null);
-    const inputRef = useRef<HTMLTextAreaElement>(null);
-
-    const primaryRec = pooledRecs[0];
-    const suggestions = useMemo(() => {
-      const first = client.name.split(" ")[0];
-      if (pooledRecs.length > 1) {
-        return [
-          `Summarize all ${pooledRecs.length} proposed actions for ${first} and how they fit together.`,
-          "What are the biggest risks across these recommendations?",
-          "Which compliance points should I cover on a joint call?",
-          "What's the business value for the bank if we execute all of them?",
-        ];
-      }
-      return [
-        `Why does "${primaryRec?.title ?? "this recommendation"}" matter for ${first} right now?`,
-        "Walk me through confidence, evidence, and what could go wrong.",
-        "What alternatives were considered and why were they rejected?",
-        `Draft a ${client.preferredChannel} note in ${first}'s communication style.`,
-      ];
-    }, [client.name, client.preferredChannel, pooledRecs.length, primaryRec?.title]);
-
-    useEffect(() => {
-      api.integrations().then((r) => setProbes(r.probes)).catch(() => {});
-    }, []);
-
-    useEffect(() => {
-      scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: "smooth" });
-    }, [messages, busy]);
-
-    const submit = useCallback(async (text: string) => {
-      const t = text.trim();
-      if (!t || busy) return;
-      setInput("");
-      setError(null);
-
-      const next: ChatMsg[] = [...messages, { role: "user", content: t }];
-      setMessages(next);
-      setBusy(true);
-
-      try {
-        const res = await fetch("/api/recommendation-chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: next, context: chatContext }),
-        });
-
-        if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(errText || `HTTP ${res.status}`);
-        }
-
-        const reply = await readChatStreamReply(res);
-        if (reply) setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
-      } catch (e) {
-        setError((e as Error).message);
-      } finally {
-        setBusy(false);
-        setTimeout(() => inputRef.current?.focus(), 50);
-      }
-    }, [busy, chatContext, messages]);
-
-    const integrationDots = [
-      { label: "Phoeniqs", probe: probes.find((p) => /phoeniqs/i.test(p.name)) },
-      { label: "SIX MCP", probe: probes.find((p) => /six/i.test(p.name)) },
-      { label: "News", probe: probes.find((p) => /news|event/i.test(p.name)) },
-    ];
-
-    return (
-      <CollapsibleCard
-        defaultOpen={false}
-        accent="insight"
-        contentClassName="p-0 pt-0"
-        header={
-          <div className="flex min-w-0 flex-1 items-center gap-4">
-            <div
-              className={cn(
-                "bento-card-icon flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border shadow-sm",
-                accentStyles.insight.icon,
-                "[&_svg]:h-8 [&_svg]:w-8",
-              )}
-            >
-              <Bot />
-            </div>
-            <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Client context</div>
-              <div className="font-display flex flex-wrap items-center gap-2 text-xl tracking-tight">
-                Chat bot
-                {pooledRecs.length > 1 && (
-                  <span className="text-xs text-primary">· {pooledRecs.length} recs</span>
-                )}
-              </div>
-            </div>
-          </div>
-        }
-      >
-        <div className="border-b border-border px-5 py-2.5 flex flex-wrap items-center gap-3 bg-secondary/20">
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Live APIs</span>
-          {integrationDots.map(({ label, probe }) => (
-            <span key={label} className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground">
-              <span
-                className={cn(
-                  "h-1.5 w-1.5 rounded-full",
-                  probe?.ok ? "bg-positive" : probe?.configured ? "bg-accent animate-pulse" : "bg-muted-foreground/40",
-                )}
-              />
-              {label}
-            </span>
-          ))}
-        </div>
-
-        <div ref={scrollerRef} className="max-h-[320px] overflow-y-auto px-5 py-4 space-y-4">
-          {messages.length === 0 && (
-            <div className="space-y-3">
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Ask about {client.name.split(" ")[0]}&apos;s profile, this recommendation brief, compliance, or live market/news context.
-              </p>
-              <div className="grid gap-1.5">
-                {suggestions.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => submit(s)}
-                    className="text-left text-xs border border-border rounded-md px-3 py-2.5 hover:bg-secondary/40 transition leading-snug"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {messages.map((m, i) => (
-            <div key={i} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
-              <div
-                className={cn(
-                  m.role === "user"
-                    ? "max-w-[90%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-primary-foreground"
-                    : "w-full rounded-lg border border-border bg-secondary/20 px-3 py-2.5",
-                )}
-              >
-                {m.role === "assistant" && (
-                  <div className="mb-2 flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                    <Bot className="h-3 w-3 text-primary" /> Chat bot
-                  </div>
-                )}
-                {m.role === "user" ? (
-                  <div className="text-xs leading-relaxed">{m.content}</div>
-                ) : (
-                  <div className="reco-chat-md text-xs leading-relaxed [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_strong]:font-semibold [&_h2]:font-display [&_h2]:text-sm [&_h2]:mt-3 [&_h2]:mb-1">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {busy && (
-            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-              Thinking…
-            </div>
-          )}
-
-          {error && (
-            <div className="rounded border border-destructive/30 bg-destructive/5 p-2.5 text-[11px] text-destructive">
-              {error}
-            </div>
-          )}
-        </div>
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            submit(input);
-          }}
-          className="flex items-end gap-2 border-t border-border bg-background p-4"
-        >
-          <textarea
-            ref={inputRef}
-            rows={2}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                submit(input);
-              }
-            }}
-            placeholder={`Ask about ${client.name.split(" ")[0]} or this recommendation…`}
-            className="flex-1 resize-none rounded-md border border-border bg-surface px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-          <button
-            type="submit"
-            disabled={busy || !input.trim()}
-            className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
-          >
-            <Send className="h-3.5 w-3.5" />
-          </button>
-        </form>
-
-        <div className="border-t border-border px-5 py-2.5 text-[10px] leading-relaxed text-muted-foreground">
-          Reads full recommendation context plus live SIX, news, and Phoeniqs. Does not send messages or execute trades.
         </div>
       </CollapsibleCard>
     );
@@ -1162,10 +913,22 @@ function RecommendationDetail() {
     const positive = pct >= 0;
     const tfLabel = tf === "1Y" ? "Last 12 months" : `Last ${tfMonths} months`;
 
+    type PortfolioWidgetKey = "portfolio-value" | "portfolio-alerts" | "portfolio-allocation" | "portfolio-holdings";
+    const { hiddenWidgets, editingWidgets, setEditingWidgets, widgetTileProps, showWidget } =
+      useBentoWidgetVisibility<PortfolioWidgetKey>("aura-portfolio-widget-visibility");
+
     return (
       <BentoBoard>
-        <div className="grid grid-cols-6 auto-rows-[80px] gap-2">
-        <Section id="portfolio-value" title="Portfolio value, today" icon={<Scale />} accent="business" bento="hero">
+        <HiddenWidgetPanelCloser editingWidgets={editingWidgets} hiddenWidgets={hiddenWidgets} />
+        <div className="space-y-3">
+          <WidgetCustomizeHeader
+            editingWidgets={editingWidgets}
+            onToggleEdit={() => setEditingWidgets((on) => !on)}
+          />
+
+          <div className="flex flex-wrap gap-3">
+        {showWidget("portfolio-value") && (
+        <Section id="portfolio-value" title="Portfolio value, today" icon={<Scale />} accent="business" bento="square" {...widgetTileProps("portfolio-value")}>
           <div className="grid grid-cols-[1fr_1fr_auto] gap-8 items-center">
             <div>
               <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">Portfolio value, today</div>
@@ -1235,15 +998,17 @@ function RecommendationDetail() {
             />
           </div>
         </Section>
+        )}
 
-        {alerts.length > 0 && (
+        {alerts.length > 0 && showWidget("portfolio-alerts") && (
           <Section
             id="portfolio-alerts"
             title="Holdings flagged"
             subtitle={`${alerts.length} need review`}
             icon={<AlertTriangle />}
             accent="risk"
-            bento="third"
+            bento="square"
+            {...widgetTileProps("portfolio-alerts")}
           >
             <div className="space-y-2">
               {alerts.map((h) => {
@@ -1273,7 +1038,8 @@ function RecommendationDetail() {
           </Section>
         )}
 
-        <Section id="portfolio-allocation" title="Actual vs Target allocation" subtitle="Bars show actual, line marks target" icon={<Layers />} accent="insight" bento="wide">
+        {showWidget("portfolio-allocation") && (
+        <Section id="portfolio-allocation" title="Actual vs Target allocation" subtitle="Bars show actual, line marks target" icon={<Layers />} accent="insight" bento="square" {...widgetTileProps("portfolio-allocation")}>
           <div className="mt-2 space-y-4">
               {total.map((a) => {
                 const dev = a.value - a.target;
@@ -1311,8 +1077,10 @@ function RecommendationDetail() {
               </div>
             </div>
           </Section>
+        )}
 
-        <Section id="portfolio-holdings" title="Holdings" subtitle="Live via SIX MCP" icon={<Briefcase />} accent="evidence" bento="wide">
+        {showWidget("portfolio-holdings") && (
+        <Section id="portfolio-holdings" title="Holdings" subtitle="Live via SIX MCP" icon={<Briefcase />} accent="evidence" bento="square" {...widgetTileProps("portfolio-holdings")}>
             <div className="border border-border rounded overflow-hidden">
               <div className="grid grid-cols-[1fr_150px_90px_110px_70px_30px] gap-3 px-4 py-2 bg-secondary/40 text-[10px] uppercase tracking-wider text-muted-foreground">
                 <div>Instrument</div>
@@ -1379,41 +1147,75 @@ function RecommendationDetail() {
               </div>
             </div>
           </Section>
+        )}
+          </div>
+          <BentoDetailPanel />
         </div>
-        <BentoDetailPanel />
       </BentoBoard>
     );
   }
 
   function DnaTab() {
     const d = client.dna;
-    type Density = "Essentials" | "Standard" | "Full";
-    const [density, setDensity] = useState<Density>("Standard");
-    const show = (level: Density) =>
-      density === "Full" || (density === "Standard" && level !== "Full") || (density === "Essentials" && level === "Essentials");
+    type DnaView = "tiles" | "board";
+    type DnaWidgetKey =
+      | "dna-memory"
+      | "dna-cheatsheet"
+      | "dna-news"
+      | "dna-media"
+      | "dna-crm"
+      | "personal-hero"
+      | "personal-family"
+      | "personal-dates"
+      | "personal-rituals"
+      | "personal-starters"
+      | "personal-gifts"
+      | "personal-never"
+      | "dna-wealth"
+      | "dna-tax"
+      | "dna-behaviour"
+      | "dna-interests"
+      | "dna-values"
+      | "dna-gaps";
+
+    const { hiddenWidgets, editingWidgets, setEditingWidgets, widgetTileProps, showWidget } =
+      useBentoWidgetVisibility<DnaWidgetKey>("aura-dna-widget-visibility");
+    const [dnaView, setDnaView] = useState<DnaView>("tiles");
+
+    if (dnaView === "board") {
+      return (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Client DNA</div>
+              <p className="mt-1 max-w-xl text-xs text-muted-foreground">
+                Same profile data on an infinite canvas — pan, zoom, draw connections, add sticky notes. Layout saves per client.
+              </p>
+            </div>
+            <DnaViewSwitcher view={dnaView} onChange={setDnaView} />
+          </div>
+          <ClientDnaBoard client={client} />
+        </div>
+      );
+    }
 
     return (
       <BentoBoard>
-        <div className="col-span-6 mb-3 flex items-center justify-between rounded-2xl border border-border/80 bg-surface/90 px-4 py-2.5 shadow-sm backdrop-blur-sm">
-          <div className="text-xs text-muted-foreground">
-            <span className="uppercase tracking-[0.18em]">View density</span>
-            <span className="ml-3 text-foreground/70">Choose how much of the DNA to surface on screen.</span>
+        <HiddenWidgetPanelCloser editingWidgets={editingWidgets} hiddenWidgets={hiddenWidgets} />
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <WidgetCustomizeHeader
+                editingWidgets={editingWidgets}
+                onToggleEdit={() => setEditingWidgets((on) => !on)}
+              />
+            </div>
+            <DnaViewSwitcher view={dnaView} onChange={setDnaView} />
           </div>
-          <div className="flex items-center gap-1 bg-secondary/40 border border-border rounded-md p-0.5">
-            {(["Essentials", "Standard", "Full"] as Density[]).map((opt) => (
-              <button
-                key={opt}
-                onClick={() => setDensity(opt)}
-                className={`px-3 py-1 text-xs rounded transition-colors ${density === opt ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                {opt}
-              </button>
-            ))}
-          </div>
-        </div>
 
-        <div className="grid grid-cols-6 auto-rows-[80px] gap-2">
-        <Section id="dna-memory" title="Client memory card" subtitle="Family portrait & key facts" icon={<Users />} accent="human" bento="hero">
+          <div className="flex flex-wrap gap-3">
+        {showWidget("dna-memory") && (
+        <Section id="dna-memory" title="Client memory card" subtitle="Family portrait & key facts" icon={<Users />} accent="human" bento="square" {...widgetTileProps("dna-memory")}>
           <div className="grid grid-cols-[360px_1fr] gap-0 overflow-hidden rounded-xl border border-border">
             {/* Photo + identity, large family-style portrait */}
             <div className="relative bg-gradient-to-br from-accent/15 via-secondary/40 to-surface p-6 border-r border-border flex flex-col">
@@ -1489,14 +1291,17 @@ function RecommendationDetail() {
             <span>Confidence: <span className="text-foreground/80">Explicit</span> (said) · <span className="text-foreground/80">Pattern</span> (observed) · <span className="text-foreground/80">Inferred</span> (assumed)</span>
           </div>
         </Section>
+        )}
 
+        {showWidget("dna-cheatsheet") && (
         <Section
           id="dna-cheatsheet"
           title="RM cheat-sheet"
           subtitle={d.kycRefresh ? `KYC refresh, ${d.kycRefresh}` : "Before you reach out"}
           icon={<ThumbsUp />}
           accent="insight"
-          bento="third"
+          bento="square"
+          {...widgetTileProps("dna-cheatsheet")}
         >
           <div className="grid grid-cols-2 gap-8">
             <div>
@@ -1529,9 +1334,10 @@ function RecommendationDetail() {
             </div>
           )}
         </Section>
+        )}
 
-        {/* NEWS ABOUT THE CLIENT, overall, after the cheat-sheet so RM can read it in flow */}
-        <Section id="dna-news" title="News about the client" subtitle="Life events, meetings, trades and observations, newest first" icon={<Sparkles />} accent="evidence" bento="wide">
+        {showWidget("dna-news") && (
+        <Section id="dna-news" title="News about the client" subtitle="Life events, meetings, trades and observations, newest first" icon={<Sparkles />} accent="evidence" bento="square" {...widgetTileProps("dna-news")}>
           <div className="relative pl-6">
             <div className="absolute left-2 top-2 bottom-2 w-px bg-border" />
             <div className="space-y-4">
@@ -1565,10 +1371,10 @@ function RecommendationDetail() {
             </div>
           )}
         </Section>
+        )}
 
-        {/* MEDIA & NEWS MENTIONS, open-source signal about the client or their businesses */}
-        {show("Standard") && (
-          <Section id="dna-media" title="Media & news mentions" subtitle="Open-source signal about the client, their family, or their businesses" icon={<Newspaper />} accent="evidence" bento="half">
+        {showWidget("dna-media") && (
+          <Section id="dna-media" title="Media & news mentions" subtitle="Open-source signal about the client, their family, or their businesses" icon={<Newspaper />} accent="evidence" bento="square" {...widgetTileProps("dna-media")}>
             {(d.media ?? []).length === 0 ? (
               <p className="text-sm text-muted-foreground">No tracked mentions in the last 90 days.</p>
             ) : (
@@ -1598,9 +1404,8 @@ function RecommendationDetail() {
           </Section>
         )}
 
-        {/* CRM TOUCHPOINTS, every logged interaction from Salesforce / internal log */}
-        {show("Standard") && (
-          <Section id="dna-crm" title="CRM touchpoints" subtitle="Every logged interaction, newest first, so you walk in remembering the last call" icon={<PhoneCall />} accent="insight" bento="half">
+        {showWidget("dna-crm") && (
+          <Section id="dna-crm" title="CRM touchpoints" subtitle="Every logged interaction, newest first, so you walk in remembering the last call" icon={<PhoneCall />} accent="insight" bento="square" {...widgetTileProps("dna-crm")}>
             {(d.crmTouchpoints ?? []).length === 0 ? (
               <p className="text-sm text-muted-foreground">No touchpoints logged yet.</p>
             ) : (
@@ -1626,11 +1431,17 @@ function RecommendationDetail() {
           </Section>
         )}
 
-        {/* The person behind the portfolio, the human layer */}
-        {show("Standard") && d.personal && <PersonalLayer p={d.personal} firstName={client.name.split(" ")[0]} />}
+        {d.personal && (
+          <PersonalLayer
+            p={d.personal}
+            firstName={client.name.split(" ")[0]}
+            showWidget={showWidget}
+            widgetTileProps={widgetTileProps}
+          />
+        )}
 
-        {show("Standard") && (
-          <Section id="dna-wealth" title="Where the wealth sits" subtitle="Bank-mandated AUM in context of total estimated wealth" icon={<Compass />} accent="business" bento="third">
+        {showWidget("dna-wealth") && (
+          <Section id="dna-wealth" title="Where the wealth sits" subtitle="Bank-mandated AUM in context of total estimated wealth" icon={<Compass />} accent="business" bento="square" {...widgetTileProps("dna-wealth")}>
             {(d.netWorthMap ?? []).length === 0 ? (
               <p className="text-sm text-muted-foreground">No wealth map on file.</p>
             ) : (
@@ -1654,8 +1465,8 @@ function RecommendationDetail() {
           </Section>
         )}
 
-        {show("Standard") && (
-          <Section id="dna-tax" title="Wealth origin, tax & succession" icon={<Briefcase />} accent="business" bento="third">
+        {showWidget("dna-tax") && (
+          <Section id="dna-tax" title="Wealth origin, tax & succession" icon={<Briefcase />} accent="business" bento="square" {...widgetTileProps("dna-tax")}>
             <div className="space-y-3 text-sm">
               <Block label="Source of wealth" body={d.wealthSource} confidence="Explicit" />
               <Block label="Tax domicile" body={d.taxDomicile} confidence="Explicit" />
@@ -1678,8 +1489,8 @@ function RecommendationDetail() {
           </Section>
         )}
 
-        {show("Full") && (
-          <Section id="dna-behaviour" title="Behavioural patterns" subtitle="How they actually decide" icon={<Scale />} accent="insight" bento="half">
+        {showWidget("dna-behaviour") && (
+          <Section id="dna-behaviour" title="Behavioural patterns" subtitle="How they actually decide" icon={<Scale />} accent="insight" bento="square" {...widgetTileProps("dna-behaviour")}>
             <ul className="space-y-2 text-sm">
               {(d.behavioralPatterns ?? []).map((b) => (
                 <li key={b} className="leading-snug flex items-start justify-between gap-3 pb-2 border-b border-border last:border-b-0">
@@ -1692,8 +1503,8 @@ function RecommendationDetail() {
           </Section>
         )}
 
-        {show("Full") && (
-          <Section id="dna-interests" title="Sensitivities & interests" icon={<Heart />} accent="human" bento="half">
+        {showWidget("dna-interests") && (
+          <Section id="dna-interests" title="Sensitivities & interests" icon={<Heart />} accent="human" bento="square" {...widgetTileProps("dna-interests")}>
             <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Sensitivities</div>
             <ul className="space-y-1.5 text-sm mb-4">
               {d.sensitivities.map((s) => (
@@ -1712,8 +1523,8 @@ function RecommendationDetail() {
           </Section>
         )}
 
-        {show("Full") && (
-        <Section id="dna-values" title="Values & convictions" subtitle="Confidence labels source: Explicit (said), Pattern (observed), Inferred (assumed)" icon={<Star />} accent="trust" bento="full">
+        {showWidget("dna-values") && (
+        <Section id="dna-values" title="Values & convictions" subtitle="Confidence labels source: Explicit (said), Pattern (observed), Inferred (assumed)" icon={<Star />} accent="trust" bento="square" {...widgetTileProps("dna-values")}>
 
           <div className="grid grid-cols-2 gap-2">
             {d.values.map((v) => (
@@ -1731,8 +1542,8 @@ function RecommendationDetail() {
         </Section>
         )}
 
-        {show("Full") && (
-        <Section id="dna-gaps" title="DNA gaps" subtitle="What we still don't know, ask at the next meeting" icon={<ShieldAlert />} accent="risk" bento="full">
+        {showWidget("dna-gaps") && (
+        <Section id="dna-gaps" title="DNA gaps" subtitle="What we still don't know, ask at the next meeting" icon={<ShieldAlert />} accent="risk" bento="square" {...widgetTileProps("dna-gaps")}>
           <ul className="grid grid-cols-2 gap-2">
             {d.gaps.map((g) => (
               <li key={g} className="text-sm p-3 rounded border border-dashed border-border bg-secondary/30 flex items-start justify-between gap-3">
@@ -1744,8 +1555,9 @@ function RecommendationDetail() {
         </Section>
         )}
 
+          </div>
+          <BentoDetailPanel />
         </div>
-        <BentoDetailPanel />
       </BentoBoard>
     );
   }
@@ -1829,14 +1641,134 @@ function BentoBoard({ children }: { children: ReactNode }) {
   return <BentoBoardContext.Provider value={value}>{children}</BentoBoardContext.Provider>;
 }
 
+function useBentoWidgetVisibility<T extends string>(storageKey: string) {
+  const readHiddenWidgets = (): Set<T> => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return new Set();
+      const parsed = JSON.parse(raw) as { hidden?: T[] };
+      return new Set(parsed.hidden ?? []);
+    } catch {
+      return new Set();
+    }
+  };
+
+  const [hiddenWidgets, setHiddenWidgets] = useState<Set<T>>(readHiddenWidgets);
+  const [editingWidgets, setEditingWidgets] = useState(false);
+
+  const isWidgetVisible = (key: T) => !hiddenWidgets.has(key);
+
+  const toggleWidgetVisibility = (key: T) => {
+    setHiddenWidgets((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      localStorage.setItem(storageKey, JSON.stringify({ hidden: [...next] }));
+      return next;
+    });
+  };
+
+  const widgetTileProps = (key: T) => ({
+    editMode: editingWidgets,
+    widgetHidden: !isWidgetVisible(key),
+    onVisibilityToggle: () => toggleWidgetVisibility(key),
+  });
+
+  const showWidget = (key: T) => editingWidgets || isWidgetVisible(key);
+
+  return { hiddenWidgets, editingWidgets, setEditingWidgets, widgetTileProps, showWidget };
+}
+
+function WidgetCustomizeHeader({
+  editingWidgets,
+  onToggleEdit,
+}: {
+  editingWidgets: boolean;
+  onToggleEdit: () => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+          {editingWidgets ? "Tap tiles to show or hide" : "Your insight tiles"}
+        </div>
+        {editingWidgets && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Faded tiles are hidden on your dashboard. Saved for your next visit.
+          </p>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={onToggleEdit}
+        className={cn(
+          "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition",
+          editingWidgets
+            ? "border-accent bg-accent text-accent-foreground"
+            : "border-border bg-surface text-muted-foreground hover:border-accent/30 hover:text-foreground",
+        )}
+      >
+        {editingWidgets ? (
+          <>
+            <Check className="h-3.5 w-3.5" /> Done
+          </>
+        ) : (
+          <>
+            <Settings2 className="h-3.5 w-3.5" /> Customize
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
+
+function DnaViewSwitcher({
+  view,
+  onChange,
+}: {
+  view: "tiles" | "board";
+  onChange: (view: "tiles" | "board") => void;
+}) {
+  return (
+    <div className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-secondary/40 p-1">
+      <button
+        type="button"
+        onClick={() => onChange("tiles")}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition",
+          view === "tiles"
+            ? "bg-background text-foreground shadow-sm"
+            : "text-muted-foreground hover:text-foreground",
+        )}
+      >
+        <LayoutGrid className="h-3.5 w-3.5" />
+        Tiles
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("board")}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition",
+          view === "board"
+            ? "bg-background text-foreground shadow-sm"
+            : "text-muted-foreground hover:text-foreground",
+        )}
+      >
+        <Infinity className="h-3.5 w-3.5" />
+        Board
+      </button>
+    </div>
+  );
+}
+
 function HiddenWidgetPanelCloser({
   editingWidgets,
   hiddenWidgets,
-  recIds,
+  resolvePanelIds = (key) => [key],
 }: {
   editingWidgets: boolean;
   hiddenWidgets: Set<string>;
-  recIds: string[];
+  resolvePanelIds?: (key: string) => string[];
 }) {
   const board = useBentoBoard();
 
@@ -1846,15 +1778,13 @@ function HiddenWidgetPanelCloser({
 
   useEffect(() => {
     if (!board?.openId) return;
-    for (const recId of recIds) {
-      for (const key of hiddenWidgets) {
-        if (board.openId === `${recId}-${key}`) {
-          board.close();
-          return;
-        }
+    for (const key of hiddenWidgets) {
+      if (resolvePanelIds(key).includes(board.openId)) {
+        board.close();
+        return;
       }
     }
-  }, [hiddenWidgets, board, recIds]);
+  }, [hiddenWidgets, board, resolvePanelIds]);
 
   return null;
 }
@@ -1979,7 +1909,7 @@ function BentoDetailPanel() {
   const styles = accentStyles[entry.accent];
 
   return (
-    <div className="bento-detail-panel mt-3 overflow-hidden rounded-2xl border border-border/80 bg-surface/95 shadow-[0_8px_32px_-16px_rgba(0,0,0,0.18)] ring-1 ring-border/50">
+    <div className="bento-detail-panel mt-3 overflow-hidden rounded-2xl border border-border/80 bg-surface/95 shadow-[0_8px_32px_-16px_rgba(0,0,0,0.18)] ring-1 ring-border/50" data-ask-ai-section={entry.title}>
       <div className="flex items-center justify-between gap-4 border-b border-border/60 px-5 py-4">
         <div className="flex min-w-0 items-center gap-3">
           {entry.icon && (
@@ -2359,7 +2289,21 @@ function DiscardDialog({
   );
 }
 
-function PersonalLayer({ p, firstName }: { p: NonNullable<ReturnType<typeof getClient>["dna"]["personal"]>; firstName: string }) {
+function PersonalLayer<T extends string>({
+  p,
+  firstName,
+  showWidget,
+  widgetTileProps,
+}: {
+  p: NonNullable<ReturnType<typeof getClient>["dna"]["personal"]>;
+  firstName: string;
+  showWidget: (id: T) => boolean;
+  widgetTileProps: (id: T) => {
+    editMode?: boolean;
+    widgetHidden?: boolean;
+    onVisibilityToggle?: () => void;
+  };
+}) {
   const kindIcon: Record<string, React.ReactNode> = {
     Birthday: <Cake className="w-3.5 h-3.5" />,
     Anniversary: <Heart className="w-3.5 h-3.5" />,
@@ -2368,7 +2312,8 @@ function PersonalLayer({ p, firstName }: { p: NonNullable<ReturnType<typeof getC
   };
   return (
     <>
-      <Section id="personal-hero" title="The person behind the portfolio" subtitle={`In ${firstName}'s words`} icon={<Heart />} accent="human" bento="wide">
+      {showWidget("personal-hero") && (
+      <Section id="personal-hero" title="The person behind the portfolio" subtitle={`In ${firstName}'s words`} icon={<Heart />} accent="human" bento="square" {...widgetTileProps("personal-hero")}>
         <div className="grid grid-cols-[1.4fr_1fr] items-start gap-8">
           {p.voice && (
             <div>
@@ -2386,8 +2331,10 @@ function PersonalLayer({ p, firstName }: { p: NonNullable<ReturnType<typeof getC
           )}
         </div>
       </Section>
+      )}
 
-      <Section id="personal-family" title="Family & inner life" icon={<Users />} accent="human" bento="half">
+      {showWidget("personal-family") && (
+      <Section id="personal-family" title="Family & inner life" icon={<Users />} accent="human" bento="square" {...widgetTileProps("personal-family")}>
         <ul className="space-y-3">
           {(p.family ?? []).map((f) => (
             <li key={f.name} className="grid grid-cols-[32px_1fr] items-start gap-3">
@@ -2402,8 +2349,10 @@ function PersonalLayer({ p, firstName }: { p: NonNullable<ReturnType<typeof getC
           ))}
         </ul>
       </Section>
+      )}
 
-      <Section id="personal-dates" title="Dates that matter" subtitle="Show up on these, never miss them" icon={<Cake />} accent="accent" bento="half">
+      {showWidget("personal-dates") && (
+      <Section id="personal-dates" title="Dates that matter" subtitle="Show up on these, never miss them" icon={<Cake />} accent="accent" bento="square" {...widgetTileProps("personal-dates")}>
         <ul className="space-y-2.5">
           {(p.keyDates ?? []).map((k) => (
             <li key={k.date + k.label} className="grid grid-cols-[56px_20px_1fr] items-baseline gap-2">
@@ -2419,29 +2368,36 @@ function PersonalLayer({ p, firstName }: { p: NonNullable<ReturnType<typeof getC
           ))}
         </ul>
       </Section>
+      )}
 
-      <Section id="personal-rituals" title="Small things they love" subtitle="Rituals worth remembering" icon={<Heart />} accent="human" bento="third">
+      {showWidget("personal-rituals") && (
+      <Section id="personal-rituals" title="Small things they love" subtitle="Rituals worth remembering" icon={<Heart />} accent="human" bento="square" {...widgetTileProps("personal-rituals")}>
         <ul className="space-y-1.5 text-sm">
           {(p.ritualsAndLoves ?? []).map((r) => (
             <li key={r} className="flex gap-2 leading-snug"><span className="text-accent">·</span>{r}</li>
           ))}
         </ul>
       </Section>
+      )}
 
-      <Section id="personal-starters" title="Conversation starters" subtitle="They light up on these" icon={<MessageSquare />} accent="trust" bento="third">
+      {showWidget("personal-starters") && (
+      <Section id="personal-starters" title="Conversation starters" subtitle="They light up on these" icon={<MessageSquare />} accent="trust" bento="square" {...widgetTileProps("personal-starters")}>
         <ul className="space-y-1.5 text-sm">
           {(p.conversationStarters ?? []).map((c) => (
             <li key={c} className="flex gap-2 leading-snug"><span className="text-positive">·</span>{c}</li>
           ))}
         </ul>
       </Section>
+      )}
 
-      <Section id="personal-gifts" title="Gifting & gestures" icon={<Gift />} accent="insight" bento="third">
+      {showWidget("personal-gifts") && (
+      <Section id="personal-gifts" title="Gifting & gestures" icon={<Gift />} accent="insight" bento="square" {...widgetTileProps("personal-gifts")}>
         <p className="text-sm leading-relaxed">{p.giftNotes ?? <span className="italic text-muted-foreground">Not captured.</span>}</p>
       </Section>
+      )}
 
-      {(p.neverForget ?? []).length > 0 && (
-        <Section id="personal-never" title="Never forget" subtitle="Sensitive context — handle with care" icon={<ShieldAlert />} accent="risk" bento="full">
+      {(p.neverForget ?? []).length > 0 && showWidget("personal-never") && (
+        <Section id="personal-never" title="Never forget" subtitle="Sensitive context — handle with care" icon={<ShieldAlert />} accent="risk" bento="square" {...widgetTileProps("personal-never")}>
           <ul className="grid grid-cols-2 gap-2 text-sm">
             {(p.neverForget ?? []).map((n) => (
               <li key={n} className="flex gap-2 leading-snug"><span className="mt-0.5 text-destructive">!</span>{n}</li>

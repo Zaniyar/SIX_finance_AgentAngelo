@@ -1,9 +1,18 @@
 import type { Client, Recommendation } from "@/lib/mock-data";
 
+export type ClientPageTab = "reco" | "portfolio" | "dna";
+
 /** Rich context payload for the per-client recommendation chatbot. */
-export function buildRecommendationChatContext(client: Client, recs: Recommendation[]) {
+export function buildRecommendationChatContext(
+  client: Client,
+  recs: Recommendation[],
+  pageMeta?: { activeTab?: ClientPageTab },
+) {
   return {
     page: "recommendation_detail",
+    ui: {
+      activeTab: pageMeta?.activeTab ?? "reco",
+    },
     generatedAt: new Date().toISOString(),
     client: {
       id: client.id,

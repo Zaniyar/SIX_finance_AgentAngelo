@@ -35,20 +35,27 @@ function GltfAvatar({ driver, url, speaking }: { driver: LipsyncDriver; url: str
   const blink = useRef({ next: 1.5, t: 0, closing: 0 });
   const { actions, mixer } = useAnimations(animations, group);
 
-  // Switch between BreathingIdle (default) and Waving (while speaking).
+  // Start idle once on mount, never stop it — just crossfade to wave while speaking.
+  useEffect(() => {
+    const idle = actions["BreathingIdle"] ?? Object.values(actions)[0];
+    if (!idle) return;
+    idle.setLoop(THREE.LoopRepeat, Infinity).play();
+  }, [actions]);
+
   useEffect(() => {
     const idle = actions["BreathingIdle"] ?? Object.values(actions)[0];
     const wave = actions["Waving"];
     if (!idle) return;
     if (wave && speaking) {
-      idle.fadeOut(0.3);
-      wave.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.3).play();
+      wave.setLoop(THREE.LoopRepeat, Infinity).reset().play();
+      wave.crossFadeFrom(idle, 0.4, true);
     } else {
-      wave?.fadeOut(0.3);
-      idle.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.3).play();
+      if (wave?.isRunning()) {
+        idle.reset().play();
+        idle.crossFadeFrom(wave, 0.4, true);
+      }
     }
-    return () => { mixer.stopAllAction(); };
-  }, [actions, mixer, speaking]);
+  }, [actions, speaking]);
 
   // Cache viseme/blink morph targets on the rendered scene graph.
   const targets = useMemo(() => collectMorphTargets(scene), [scene]);
