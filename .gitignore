@@ -13,3 +13,4 @@ web/.env
 # Playwright artefacts / screenshots
 .playwright-mcp/
 *.png
+XR.md
