@@ -25,13 +25,14 @@ interface AngeloCallButtonProps {
 
 function PasswordModal({ onConfirm, onCancel }: { onConfirm: (phone: string) => void; onCancel: () => void }) {
   const [pw, setPw] = useState("");
-  const [phone, setPhone] = useState("+41764436995");
+  const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!phone.trim()) { setError("Please enter a phone number"); return; }
     if (pw !== DEMO_PASSWORD) { setError("Wrong password"); setPw(""); return; }
-    onConfirm(phone);
+    onConfirm(phone.trim());
   }
 
   return (
@@ -51,7 +52,8 @@ function PasswordModal({ onConfirm, onCancel }: { onConfirm: (phone: string) => 
             value={phone}
             onChange={e => setPhone(e.target.value)}
             className="w-full px-3 py-2 text-sm bg-secondary border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-ring"
-            placeholder="+41..."
+            placeholder="+41 79 123 45 67 (required)"
+            required
           />
         </div>
 

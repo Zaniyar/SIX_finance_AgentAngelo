@@ -627,9 +627,10 @@ import { triggerCall, getLastCall, getCallById, getAudioPath } from "../services
 // POST /api/calls/trigger — manual trigger from dashboard
 router.post("/calls/trigger", async (req: Request, res: Response) => {
   let { client_id, alert_id, to_number } = req.body as { client_id?: string; alert_id?: string; to_number?: string };
-  // Override RM_PHONE_NUMBER for this call if provided by the frontend
-  if (to_number) process.env.RM_PHONE_NUMBER = to_number;
   if (!client_id) return fail(res, new Error("client_id required"), 400);
+  // to_number is mandatory — no default fallback to prevent unwanted calls
+  if (!to_number || !to_number.trim()) return fail(res, new Error("to_number is required — enter the phone number to call"), 400);
+  process.env.RM_PHONE_NUMBER = to_number.trim();
 
   // "all" → pick the highest-priority client automatically
   if (client_id === "all") {
