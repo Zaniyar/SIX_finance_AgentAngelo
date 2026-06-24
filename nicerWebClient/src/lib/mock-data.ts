@@ -1149,6 +1149,69 @@ export const recommendations: Recommendation[] = [
     },
   },
 
+  // PERSONA 1, Schneider, SECOND open action (demonstrates multi-recommendation switch + merge)
+  {
+    id: "r-1b",
+    clientId: "c-schneider",
+    affectedTicker: "UNA.AS",
+    title: "Initiate Unilever, purpose-led staples position",
+    category: "Opportunity",
+    priority: "Medium",
+    advised: "Open a small 2.0% Unilever position within the staples sleeve, funded from cash.",
+    trigger: "Unilever cut all palm-oil suppliers tied to deforestation and committed CHF 280m to a Brazilian reforestation foundation.",
+    whyClient: "Since January the family has reframed the mandate as capital that acts with purpose. Unilever's move is a clean, values-aligned expression they do not yet hold.",
+    whyAction: "Unilever is on the CIO Buy list and sits squarely in the Balanced mandate's staples band. A modest 2.0% entry honours the purpose tilt without disturbing the overall risk profile.",
+    impact: { portfolioFit: 64, riskDelta: "neutral", expectedReturn: "+0.2% 12m est.", sectorShift: "Consumer Staples +2.0%" },
+    reason: {
+      storyline:
+        "Unilever's reforestation commitment [1] is the rare corporate move that matches the family's purpose-led mandate in substance, not slogan. The CIO Buy stance [2] lets us act without a values-versus-returns trade-off, and the family does not yet hold the name [3].",
+      sources: [
+        { label: "Unilever palm-oil + reforestation announcement", outlet: "Mongabay", date: "May 20, 2026", url: "#unilever-announcement", excerpt: "Suppliers cut, CHF 280m reforestation foundation launched in Brazil." },
+        { label: "CIO Recommendation, Unilever Buy", outlet: "CIO Office", date: "May 21, 2026", url: "#cio-unilever-buy", excerpt: "Sustainability-led re-rating supports a small overweight." },
+        { label: "RM note, Schneider purpose-led mandate", outlet: "Salesforce CRM", date: "Jan 22, 2026", url: "#crm-schneider-jan22", excerpt: "Capital is now an extension of the family's medical mission." },
+      ],
+    },
+    compliance: { mandateOk: true, suitabilityOk: true, cioApproved: true, regulatoryFlags: [] },
+    confidence: {
+      score: 74,
+      dataFreshness: "Announcement 1d old, CIO note <24h old, RM note 150d old",
+      modelNote: "Scored the Unilever announcement against the family's stated purpose tilt, then checked the staples band has room for a 2.0% entry under the Balanced mandate.",
+      assumptions: [
+        "The family's January purpose-led mandate intent still binds.",
+        "Cash sleeve has room to fund a 2.0% entry without forced sales.",
+      ],
+      unknowns: [
+        "Whether Hubertus wants to route purpose positions through the foundation rather than the mandate.",
+        "The family's appetite for a new name versus deepening existing holdings.",
+      ],
+    },
+    counterArguments: [
+      "Unilever rallied 3.1% on the announcement, the entry point is no longer ideal.",
+      "Introducing a brand-new name competes for attention with the higher-priority Novartis rotation.",
+    ],
+    alternatives: [
+      { option: "Route the position through the Schneider Family Foundation", whyNot: "Cleaner values fit, but the foundation's legal structure is still in draft with Bär & Karrer." },
+      { option: "Send a good-news note without a trade", whyNot: "Misses the chance to translate the family's purpose into a portfolio expression." },
+    ],
+    revenueImpact: {
+      feesChf: "+ CHF 3.2k / yr execution",
+      crossSell: "Opener for a values-aligned thematic basket alongside the neurology theme.",
+    },
+    personalImpact: {
+      angle: "Values",
+      story: "The family asked for capital that means something. A quiet, principled staples entry shows we are building the purpose tilt deliberately, not just reacting to bad news.",
+    },
+    outreach: {
+      channel: "Phone",
+      timing: "Today, 17:30 CET (alongside the Novartis call)",
+      timingReason: "Best raised in the same conversation as the higher-priority rotation, so the family hears one coherent story.",
+      style: "Values-driven",
+      subject: "A purpose-led addition: Unilever",
+      message:
+        "Dear Hubertus,\n\nAlongside the Novartis rotation, one constructive idea. Unilever has cut its deforestation-linked palm-oil suppliers and committed CHF 280m to a Brazilian reforestation foundation. It is on the CIO Buy list and fits the purpose-led direction we set in January.\n\nI would like to propose a small 2.0% entry within the staples sleeve, funded from cash, no change to your overall risk profile. Happy to cover it on the same call.\n\nWith care,\nMichael",
+    },
+  },
+
   // PERSONA 2, Huber, Purpose-Driven Investor
   {
     id: "r-2",
